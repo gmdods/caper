@@ -1,4 +1,4 @@
-# caper
+# Caper
 An attempt at a compile-time C.
 
 ## Literals

@@ -1,6 +1,6 @@
 # Steps towards a language
 
-- [ ] Choose a bootstrapping language
+- [x] Choose a bootstrapping language : [Julia](https://julialang.org/)
 
 - [ ] Write a generic reader
 
