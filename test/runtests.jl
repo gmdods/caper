@@ -21,8 +21,10 @@ using Test, Documenter, Caper
 end
 
 @testset "Lexer" begin
-	@test Caper.lex("2 + 4") == [2, :+, 4]
-	@test Caper.lex("h'ff' & b'10' | b'1100' ") == [0xff, :&, 0b10, :|, 0b1100]
+        @test Caper.lex("2 + 4") == [2, :+, 4]
+        @test Caper.lex("h'ff' & b'10' | b'1100' ") == [0xff, :&, 0b10, :|, 0b1100]
+        @test Caper.lex("z += (x > y) ? x : y") ==
+              ["z", :+=, Symbol('('), "x", :>, "y", Symbol(')'), :?, "x", :(:), "y"]
 end
 
 

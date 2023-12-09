@@ -4,7 +4,7 @@
 
 - [x] Write a generic reader
 
-- [ ] Write a C-like lexer
+- [x] Write a C-like lexer
 
 - [ ] Write a C-like parser
 
