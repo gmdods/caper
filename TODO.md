@@ -2,7 +2,7 @@
 
 - [x] Choose a bootstrapping language : [Julia](https://julialang.org/)
 
-- [ ] Write a generic reader
+- [x] Write a generic reader
 
 - [ ] Write a C-like lexer
 

@@ -37,6 +37,7 @@ const Literals = Dict{Symbol,Function}(
         :char => ascii ∘ _single_character,
         :utf => codepoint ∘ _single_character,
         :re => (s -> Regex(s)),
+	# N.B. Add more literals here
 )
 
 """
@@ -58,6 +59,7 @@ julia> Caper.literal("ff", :h)
 """
 function literal(text::AbstractString, prefix::Symbol=:i)
         local fn = get(Literals::Dict{Symbol,Function}, prefix, nothing)
+	# N.B. if nothing, can look in environment for user-defined readers
         isnothing(fn) && return nothing
         fn(text)
 end
