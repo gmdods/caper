@@ -43,7 +43,7 @@ const Literals = Dict{Symbol,Function}(
 """
 	literal(text, prefix=:i)
 
-Tries to read the given text as a literal
+Tries to read the given text as a literal.
 
 # Examples
 

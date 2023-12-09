@@ -19,3 +19,10 @@ using Test, Documenter, Caper
         @test Caper.literal(raw"\p{L}[\p{L}\p{N}]*\s+=\s+\p{N}+", :re) ==
               r"\p{L}[\p{L}\p{N}]*\s+=\s+\p{N}+"
 end
+
+@testset "Lexer" begin
+	@test Caper.lex("2 + 4") == [2, :+, 4]
+	@test Caper.lex("h'ff' & b'10' | b'1100' ") == [0xff, :&, 0b10, :|, 0b1100]
+end
+
+
