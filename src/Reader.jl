@@ -20,11 +20,19 @@ end
 
 ascii(c::Char) = isascii(c) ? UInt8(c) : nothing
 
+struct BitNumeric{B} <: Function end
+(reader::BitNumeric{B})(s::AbstractString) where {B} =
+        parse(_shrink(UInt, length(s) * B), s; base=1 << B)
+
+struct Numeric{N,T} <: Function end
+(reader::Numeric{N,T})(s::AbstractString) where {N,T<:Integer} = parse(T, s; base=N)
+
 const Literals = Dict{Symbol,Function}(
-        :i => (s -> parse(Int, s)),
-        :u => (s -> parse(UInt, s)),
-        :b => (s -> parse(_shrink(UInt, length(s)), s; base=2)),
-        :h => (s -> parse(_shrink(UInt, 4 * length(s)), s; base=16)),
+        :i => Numeric{10,Int}(),
+        :u => Numeric{10,UInt}(),
+        :b => BitNumeric{1}(),
+        :o => BitNumeric{3}(),
+        :h => BitNumeric{4}(),
         :f => (s -> parse(Float64, s)),
         :char => ascii ∘ _single_character,
         :utf => codepoint ∘ _single_character,
