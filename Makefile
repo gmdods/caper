@@ -9,6 +9,7 @@ all: test doc
 
 test: $(DEPS) $(TEST)
 	julia --project=. $(TEST)
+
 doc: $(DEPS) $(DOCS) $(DOC)
 	julia --project=. $(DOC)
 
