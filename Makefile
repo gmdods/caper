@@ -7,9 +7,9 @@ DOC 	= ./docs/make.jl
 .PHONY: all
 all: test doc
 
-test: $(DEPS) $(TEST)
+test: $(TEST) $(DEPS)
 	julia --project=. $(TEST)
 
-doc: $(DEPS) $(DOCS) $(DOC)
+doc: $(DOC) $(DOCS) $(DEPS)
 	julia --project=. $(DOC)
 
