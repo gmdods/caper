@@ -1,7 +1,7 @@
 using Documenter, Caper
 
 makedocs(
-	modules=[Caper, Caper.Reader],
+	modules=[Caper],
 	sitename="Caper",
 	doctest=true
 )

@@ -11,7 +11,7 @@ end
 ```
 
 ```@autodocs
-Modules = [Caper, Caper.Reader]
+Modules = [Caper]
 ```
 
 

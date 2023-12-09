@@ -1,11 +1,8 @@
-# module Caper.Reader
+## module Caper, reader functions
 
 """
 Methods for reading and interpreting macros
 """
-module Reader
-
-export shrink, literal
 
 const UnsignedTypes = [UInt8, UInt16, UInt32, UInt64, UInt]
 const UnsignedWidths = [8, 16, 32, 64]
@@ -31,11 +28,11 @@ const Literals = Dict{Symbol,Function}(
         :f => (s -> parse(Float64, s)),
         :char => ascii ∘ _single_character,
         :utf => codepoint ∘ _single_character,
-	:re => (s -> Regex(s)),
+        :re => (s -> Regex(s)),
 )
 
 """
-	literal(text; prefix=:i)
+	literal(text, prefix=:i)
 
 Tries to read the given text as a literal
 
@@ -47,14 +44,13 @@ julia> using Caper
 julia> Caper.literal("01234")
 1234
 
-julia> Caper.literal("ff"; prefix=:h)
+julia> Caper.literal("ff", :h)
 0xff
 ```
 """
-function literal(text::AbstractString; prefix::Symbol=:i)
+function literal(text::AbstractString, prefix::Symbol=:i)
         local fn = get(Literals::Dict{Symbol,Function}, prefix, nothing)
         isnothing(fn) && return nothing
         fn(text)
 end
 
-end # module Reader
