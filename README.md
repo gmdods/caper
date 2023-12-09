@@ -1,7 +1,16 @@
 # Caper
 An attempt at a compile-time C.
 
-## Literals
+## Building
+
+The bootstrap implementation is in Julia.
+_In future_:
+There will be a Caper to C translator and a self-hosted compiler.
+The generated C translation of the compiler could build Caper in any system (with libc).
+
+## Language Syntax
+
+### Literals
 
 Standard decimal With Lispy (also Julia and Elixir) compile-time
 readers and [sigils](https://en.wikipedia.org/wiki/Sigil_(computer_programming)#Literal_affixes).
