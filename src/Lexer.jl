@@ -1,8 +1,8 @@
 ## module Caper, lexer functions
 
-Base.:|(fn::Vararg{<:Function,N}) where {N} = x -> mapreduce(f -> f(x), |, fn)
-Base.:&(fn::Vararg{<:Function,N}) where {N} = x -> mapreduce(f -> f(x), &, fn)
-
+"""
+Methods for lexing files
+"""
 
 struct Lookahead
         text::String
@@ -62,11 +62,6 @@ end
 
 Base.IteratorEltype(::Type{Lookahead}) = Base.EltypeUnknown()
 Base.IteratorSize(::Type{Lookahead}) = Base.SizeUnknown()
-
-"""
-Methods for lexing files
-"""
-
 
 """
 	lex(text)

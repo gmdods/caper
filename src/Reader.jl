@@ -12,31 +12,34 @@ function _shrink(::Type{UInt}, nbits::Int)
         (UnsignedTypes::Vector{DataType})[r]
 end
 
-function _single_character(s::AbstractString)
-        local e = unescape_string(s)
-        length(e) == 1 || return nothing
-        e[1]
+struct BitNumeric{B} <: Function end
+function (::BitNumeric{B})(s::AbstractString) where {B}
+        tryparse(_shrink(UInt, length(s) * B), s; base=1 << B)
 end
 
-ascii(c::Char) = isascii(c) ? UInt8(c) : nothing
-
-struct BitNumeric{B} <: Function end
-(reader::BitNumeric{B})(s::AbstractString) where {B} =
-        parse(_shrink(UInt, length(s) * B), s; base=1 << B)
-
 struct Numeric{N,T} <: Function end
-(reader::Numeric{N,T})(s::AbstractString) where {N,T<:Integer} = parse(T, s; base=N)
+function (::Numeric{N,T})(s::AbstractString) where {N,T<:Integer}
+	tryparse(T, s; base=N)
+end
+
+struct Character{T} <: Function end
+function (::Character{UInt8})(s::AbstractString)
+	ascii(tryparse(Char, s))
+end
+function (::Character{UInt32})(s::AbstractString)
+	codepoint(tryparse(Char, s))
+end
 
 const Literals = Dict{Symbol,Function}(
-        :i => Numeric{10,Int}(),
-        :u => Numeric{10,UInt}(),
-        :b => BitNumeric{1}(),
-        :o => BitNumeric{3}(),
-        :h => BitNumeric{4}(),
-        :f => (s -> parse(Float64, s)),
-        :char => ascii ∘ _single_character,
-        :utf => codepoint ∘ _single_character,
-        :re => (s -> Regex(s)),
+	:i => Numeric{10,Int}(),
+	:u => Numeric{10,UInt}(),
+	:b => BitNumeric{1}(),
+	:o => BitNumeric{3}(),
+	:h => BitNumeric{4}(),
+	:f => (s -> parse(Float64, s)),
+	:char => Character{UInt8}(),
+	:utf => Character{UInt32}(),
+	:re => (s -> Regex(s)),
 	# N.B. Add more literals here
 )
 
