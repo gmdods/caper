@@ -8,5 +8,6 @@ module Caper
 include("./tools.jl")
 include("./Reader.jl")
 include("./Lexer.jl")
+include("./Parser.jl")
 
 end # module Caper

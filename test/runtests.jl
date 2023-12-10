@@ -28,3 +28,9 @@ end
 end
 
 
+@testset "Parser" begin
+        @test Caper.ast("x = 4; ") == [(Symbol(";"), "x", :(=), 4)]
+        @test Caper.ast("return x % b'1';") == [(Symbol(";"), :return, (:%, "x", 0b01))]
+end
+
+

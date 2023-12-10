@@ -25,8 +25,11 @@ function _enclose(L::Lookahead, s::Int)
         _emit(L, s) == '\'' || return nothing
 end
 
-const CharEqual = "<=>~&|+-*/%"
-const SpecialChar = "'[]{}()@#!?^,.:;" * CharEqual
+const Keywords = ["if", "else", "for", "while", "return", "break", "continue"]
+const CmpChar = "<=>"
+const MathChar = "~&|+-*/%"
+const EqualChar = CmpChar * MathChar
+const SpecialChar = "'[]{}()@#!?^,.:;" * EqualChar
 
 function Base.iterate(L::Lookahead, state=1)
         local i = _find(L, !isspace, state)
@@ -51,7 +54,7 @@ function Base.iterate(L::Lookahead, state=1)
                 t = _seek(L, !isdigit, s)
                 r = literal(_emit(L, s:t-1))
                 (r, t)
-        elseif c in CharEqual && _checkemit(L, s + 1) == '='
+        elseif c in EqualChar && _checkemit(L, s + 1) == '='
                 r = Symbol(c * '=')
                 (r, s + 2)
         else
@@ -66,7 +69,7 @@ Base.IteratorSize(::Type{Lookahead}) = Base.SizeUnknown()
 """
 	lex(text)
 
-Reads a text into a datastructure.
+Emits all tokens in a text.
 
 # Examples
 
