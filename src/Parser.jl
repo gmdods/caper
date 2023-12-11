@@ -11,6 +11,30 @@ const CloseBraces = Symbol.(collect(")]}"))
 const Keywords = Symbol.(KeywordString)
 const Statements = Symbol.(["if", "while", "for"])
 
+
+const Precedence = Dict{Symbol, Int}(
+	:(=) => 1,
+	:(|=) => 1, Symbol("~=") => 1, :(&=) => 1,
+	:(+=) => 1, :(-=) => 1, :(*=) => 1,
+	:(/=) => 1, :(%=) => 1,
+
+	:(|) => 2,
+	:(~) => 3,
+	:(&) => 4,
+	:(==) => 5, :(!=) => 5,
+	:(<) => 6, :(>) => 6, :(<=) => 6, :(>=) => 6,
+	:(+) => 7, :(-) => 7,
+	:(*) => 8, :(/) => 8, :(%) => 8,
+)
+
+@assert all((b in keys(Precedence)) for b = Binary)
+
+mutable struct Pushdown
+	stack::Vector{Any}
+	precedence::Int
+	Pushdown() = new(Any[], 0)
+end
+
 _top(stack) = isempty(stack) ? nothing : stack[end]
 
 const Semicolon = Symbol(";")
@@ -58,33 +82,33 @@ function _unbrace(brace::Symbol, stack)
 	end
 end
 
-_ingest(next::AbstractString, stack) = push!(stack, next)
+_ingest(next::AbstractString, auto::Pushdown) = push!(auto.stack, next)
 
-function _ingest(next::T, stack) where {T<:Number}
-        if length(stack) >= 2 && stack[end] in Binary
-                op = pop!(stack)
-                prev = pop!(stack)
+function _ingest(next::T, auto::Pushdown) where {T<:Number}
+	if length(auto.stack) >= 2 && _top(auto.stack) in Binary
+                op = pop!(auto.stack)
+                prev = pop!(auto.stack)
                 node = (op, prev, next)
         else
                 node = next
         end
-        push!(stack, node)
+        push!(auto.stack, node)
 end
 
-function _ingest(next::Symbol, stack)
+function _ingest(next::Symbol, auto::Pushdown)
         if next == Semicolon
-		node = _semicolon(stack)
-		push!(stack, node)
+		node = _semicolon(auto.stack)
         elseif next in OpenBraces
-                push!(stack, next)
+                node = next
         elseif next in CloseBraces
-		node = _unbrace(next, stack)
-		push!(stack, node)
+		node = _unbrace(next, auto.stack)
         elseif next in Binary || next in Assign
-                push!(stack, next)
+		auto.precedence = Precedence[next]
+		node = next
         else
-                push!(stack, next)
+		node = next
         end
+	push!(auto.stack, node)
 end
 
 """
@@ -107,10 +131,10 @@ julia> Caper.ast("return 1 + h'1f';")
 ```
 """
 function ast(text::AbstractString)
-        stack = Any[]
+	auto = Pushdown()
         for next = lex(text)
-                _ingest(next, stack)
+                _ingest(next, auto)
         end
-        return stack
+        return auto.stack
 end
 
