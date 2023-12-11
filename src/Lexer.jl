@@ -6,23 +6,22 @@ Methods for lexing files
 
 struct Lookahead
         text::String
-        ℓ::Int
-        Lookahead(text::AbstractString) =
-                new(text, length(text))
+        length::Int
+        Lookahead(text::AbstractString) = new(text, length(text))
 end
 
-_emit(L::Lookahead, index::Int) = L.text[index]
-_emit(L::Lookahead, index) = view(L.text, index)
-_checkemit(L::Lookahead, index::Int) = (index <= L.ℓ) ? _emit(L, index) : nothing
+_emit(lexer::Lookahead, index::Int) = lexer.text[index]
+_emit(lexer::Lookahead, index) = view(lexer.text, index)
+_checkemit(lexer::Lookahead, index::Int) = (index <= lexer.length) ? _emit(lexer, index) : nothing
 
-_find(L::Lookahead, p::Function, index::Int) = findnext(p, L.text, index)
-_seek(L::Lookahead, p::Function, index::Int) = something(_find(L, p, index), L.ℓ + 1)
+_find(lexer::Lookahead, p::Function, index::Int) = findnext(p, lexer.text, index)
+_seek(lexer::Lookahead, p::Function, index::Int) = something(_find(lexer, p, index), lexer.length + 1)
 
-_rfind(L::Lookahead, p::Function, index::Int) = findprev(p, L.text, index)
-_rseek(L::Lookahead, p::Function, index::Int) = something(_rfind(L, p, index), 0)
+_rfind(lexer::Lookahead, p::Function, index::Int) = findprev(p, lexer.text, index)
+_rseek(lexer::Lookahead, p::Function, index::Int) = something(_rfind(lexer, p, index), 0)
 
-function _enclose(L::Lookahead, s::Int)
-        _emit(L, s) == '\'' || return nothing
+function _enclose(lexer::Lookahead, s::Int)
+        _emit(lexer, s) == '\'' || return nothing
 end
 
 const KeywordString = ["if", "else", "for", "while", "return", "break", "continue"]
@@ -34,30 +33,30 @@ const SpecialChar = "'[]{}()@#!?^,.:;" * EqualChar
 _reserved(word::AbstractString) = (word in KeywordString) ? Symbol(word) : word
 
 
-function Base.iterate(L::Lookahead, state=1)
-        local i = _find(L, !isspace, state)
+function Base.iterate(lexer::Lookahead, state=1)
+        local i = _find(lexer, !isspace, state)
         !isnothing(i) || return nothing
 
-        local s = _find(L, isdigit | isletter | in(SpecialChar), i)
+        local s = _find(lexer, isdigit | isletter | in(SpecialChar), i)
         !isnothing(s) || return nothing
 
-        local c = _emit(L, s)
+        local c = _emit(lexer, s)
         if isletter(c)
-                w = _seek(L, !(isdigit | isletter), s)
-                v = _emit(L, s:w-1)
-                _checkemit(L, w) == '\'' || return (_reserved(v), w)
+                w = _seek(lexer, !(isdigit | isletter), s)
+                v = _emit(lexer, s:w-1)
+                _checkemit(lexer, w) == '\'' || return (_reserved(v), w)
 
                 # Literal
-                t = _find(L, ==('\''), w + 1)
+                t = _find(lexer, ==('\''), w + 1)
                 !isnothing(t) || return nothing
 
-                r = literal(_emit(L, w+1:t-1), Symbol(v))
+                r = literal(_emit(lexer, w+1:t-1), Symbol(v))
                 (r, t + 1)
         elseif isdigit(c)
-                t = _seek(L, !isdigit, s)
-                r = literal(_emit(L, s:t-1))
+                t = _seek(lexer, !isdigit, s)
+                r = literal(_emit(lexer, s:t-1))
                 (r, t)
-        elseif c in EqualChar && _checkemit(L, s + 1) == '='
+        elseif c in EqualChar && _checkemit(lexer, s + 1) == '='
                 r = Symbol(c * '=')
                 (r, s + 2)
         else
