@@ -36,13 +36,20 @@ function _unbrace(brace::Symbol, stack)
 	sentinel = OpenBraces[findfirst(==(brace), CloseBraces)]
 	opening = findlast(==(sentinel), stack)
 	@assert !isnothing(opening)
-	pops = Any[pop!(stack) for _ = 1:(length(stack)-opening)]
+	if brace == Symbol("]")
+		index = pop!(stack)
+		_ = pop!(stack) # sentinel
+		array = pop!(stack)
+		return (:index, array, index)
+	end
+
+	pops = reverse!(Any[pop!(stack) for _ = 1:(length(stack)-opening)])
 	_ = pop!(stack) # sentinel
 
 	if _top(stack) in Statements
 		keyword = pop!(stack)
 		(keyword, pops)
-	elseif _top(stack) isa AbstractString
+	elseif _top(stack) isa AbstractString && brace == Symbol(")")
 		fn = pop!(stack)
 		@assert all(==(Symbol(",")), pops[2:2:end])
 		(:call, fn, pops[1:2:end])

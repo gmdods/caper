@@ -30,19 +30,28 @@ end
 
 @testset "Parser" begin
         @test Caper.ast("x = 4; ") ==
-		Any[(Symbol(";"), "x", :(=), 4)]
+              Any[(Symbol(";"), "x", :(=), 4)]
         @test Caper.ast("return x % b'1';") ==
-		Any[(Symbol(";"), :return, (:%, "x", 0b01))]
-	@test Caper.ast("return (x % b'1') + 1;") ==
-		Any[(Symbol(";"), :return, (:+, (Symbol("("), [(:%, "x", 0b01)]), 1))]
-	@test Caper.ast("if (x % b'1') { sum += 1; }") ==
-		Any[(:if, Any[(:%, "x", 0x01)]),
-			(Symbol("{"), Any[(Symbol(";"), "sum", :+=, 1)])]
-	@test Caper.ast("x = add(times(3, 2), 1 + 2);") ==
-		Any[(Symbol(";"), "x", :(=),
-			(:call, "add",
-				Any[(:+, 1, 2), (:call, "times", Any[2, 3])]))
-]
+              Any[(Symbol(";"), :return, (:%, "x", 0b01))]
+        @test Caper.ast("return (x % b'1') + 1;") ==
+              Any[(Symbol(";"), :return, (:+, (Symbol("("), [(:%, "x", 0b01)]), 1))]
+        @test Caper.ast("if (x % b'1') { sum += 1; }") ==
+              Any[(:if, Any[(:%, "x", 0x01)]),
+                (Symbol("{"), Any[(Symbol(";"), "sum", :+=, 1)])]
+        @test Caper.ast("x = add(times(3, 2), 1 + 2);") ==
+              Any[(Symbol(";"), "x", :(=),
+                (:call, "add",
+                        Any[(:call, "times", Any[3, 2]), (:+, 1, 2)]))]
+        @test Caper.ast(""" {
+        	if (argc < 2) {
+        		return 1;
+        	}
+        	printf(argv[1]);
+        }
+        """) == Any[(Symbol("{"), Any[
+		(:if, Any["argc", :<, 2]), (Symbol("{"), Any[
+			(Symbol(";"), :return, 1)]),
+		(Symbol(";"), (:call, "printf", Any[(:index, "argv", 1)]))])]
 end
 
 
