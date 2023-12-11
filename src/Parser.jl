@@ -13,6 +13,44 @@ const Statements = Symbol.(["if", "while", "for"])
 
 _top(stack) = isempty(stack) ? nothing : stack[end]
 
+const Semicolon = Symbol(";")
+function _semicolon(stack)
+	@assert length(stack) > 0
+	stmt = pop!(stack)
+	if isempty(stack)
+		(Semicolon, stmt)
+	elseif _top(stack) in Assign
+		equal = pop!(stack)
+		name = pop!(stack)
+		@assert name isa AbstractString
+		(Semicolon, name, equal, stmt)
+	elseif _top(stack) in Keywords
+		keyword = pop!(stack)
+		(Semicolon, keyword, stmt)
+	else
+		(Semicolon, stmt)
+	end
+end
+
+function _unbrace(brace::Symbol, stack)
+	sentinel = OpenBraces[findfirst(==(brace), CloseBraces)]
+	opening = findlast(==(sentinel), stack)
+	@assert !isnothing(opening)
+	pops = Any[pop!(stack) for _ = 1:(length(stack)-opening)]
+	_ = pop!(stack) # sentinel
+
+	if _top(stack) in Statements
+		keyword = pop!(stack)
+		(keyword, pops)
+	elseif _top(stack) isa AbstractString
+		fn = pop!(stack)
+		@assert all(==(Symbol(",")), pops[2:2:end])
+		(:call, fn, pops[1:2:end])
+	else
+		(sentinel, pops)
+	end
+end
+
 _ingest(next::AbstractString, stack) = push!(stack, next)
 
 function _ingest(next::T, stack) where {T<:Number}
@@ -27,43 +65,14 @@ function _ingest(next::T, stack) where {T<:Number}
 end
 
 function _ingest(next::Symbol, stack)
-        if next == Symbol(";")
-                @assert length(stack) > 0
-                stmt = pop!(stack)
-                if isempty(stack)
-                        node = (next, stmt)
-                elseif _top(stack) in Assign
-                        equal = pop!(stack)
-                        name = pop!(stack)
-                        @assert name isa AbstractString
-                        node = (next, name, equal, stmt)
-                elseif _top(stack) in Keywords
-                        keyword = pop!(stack)
-                        node = (next, keyword, stmt)
-                else
-                        node = (next, stmt)
-                end
-                push!(stack, node)
+        if next == Semicolon
+		node = _semicolon(stack)
+		push!(stack, node)
         elseif next in OpenBraces
                 push!(stack, next)
         elseif next in CloseBraces
-                sentinel = OpenBraces[findfirst(==(next), CloseBraces)]
-                opening = findlast(==(sentinel), stack)
-                @assert !isnothing(opening)
-                pops = Any[pop!(stack) for _ = 1:(length(stack)-opening)]
-                _ = pop!(stack) # sentinel
-
-                if _top(stack) in Statements
-                        keyword = pop!(stack)
-                        node = (keyword, pops)
-                elseif _top(stack) isa AbstractString
-                        fn = pop!(stack)
-                        @assert all(==(Symbol(",")), pops[2:2:end])
-                        node = (:call, fn, pops[1:2:end])
-                else
-                        node = (sentinel, pops)
-                end
-                push!(stack, node)
+		node = _unbrace(next, stack)
+		push!(stack, node)
         elseif next in Binary || next in Assign
                 push!(stack, next)
         else
