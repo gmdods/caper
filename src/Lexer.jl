@@ -12,17 +12,13 @@ end
 
 _emit(lexer::Lookahead, index::Int) = lexer.text[index]
 _emit(lexer::Lookahead, index) = view(lexer.text, index)
-_checkemit(lexer::Lookahead, index::Int) = (index <= lexer.length) ? _emit(lexer, index) : nothing
+_checkemit(lexer::Lookahead, index) = (index <= lexer.length) ? _emit(lexer, index) : nothing
 
-_find(lexer::Lookahead, p::Function, index::Int) = findnext(p, lexer.text, index)
-_seek(lexer::Lookahead, p::Function, index::Int) = something(_find(lexer, p, index), lexer.length + 1)
+_find(lexer::Lookahead, p, index) = findnext(p, lexer.text, index)
+_seek(lexer::Lookahead, p, index) = something(_find(lexer, p, index), lexer.length + 1)
 
-_rfind(lexer::Lookahead, p::Function, index::Int) = findprev(p, lexer.text, index)
-_rseek(lexer::Lookahead, p::Function, index::Int) = something(_rfind(lexer, p, index), 0)
-
-function _enclose(lexer::Lookahead, s::Int)
-        _emit(lexer, s) == '\'' || return nothing
-end
+_rfind(lexer::Lookahead, p, index) = findprev(p, lexer.text, index)
+_rseek(lexer::Lookahead, p, index) = something(_rfind(lexer, p, index), 0)
 
 const KeywordString = ["if", "else", "for", "while", "return", "break", "continue"]
 const CmpChar = "<=>"
@@ -31,7 +27,6 @@ const EqualChar = CmpChar * MathChar
 const SpecialChar = "'[]{}()@#!?^,.:;" * EqualChar
 
 _reserved(word::AbstractString) = (word in KeywordString) ? Symbol(word) : word
-
 
 function Base.iterate(lexer::Lookahead, state=1)
         local i = _find(lexer, !isspace, state)

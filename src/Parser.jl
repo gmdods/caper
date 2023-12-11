@@ -4,13 +4,13 @@
 Methods for parsing files
 """
 
+const Semicolon = Symbol(";")
 const Binary = Symbol.([collect(MathChar); collect(CmpChar) .* '='])
 const Assign = Symbol.(['='; collect(MathChar) .* '='])
 const OpenBraces = Symbol.(collect("([{"))
 const CloseBraces = Symbol.(collect(")]}"))
 const Keywords = Symbol.(KeywordString)
 const Statements = Symbol.(["if", "while", "for"])
-
 
 const Precedence = Dict{Symbol, Int}(
 	:(=) => 1,
@@ -37,7 +37,6 @@ end
 
 _top(stack) = isempty(stack) ? nothing : stack[end]
 
-const Semicolon = Symbol(";")
 function _semicolon(stack)
 	@assert length(stack) > 0
 	stmt = pop!(stack)
@@ -56,35 +55,41 @@ function _semicolon(stack)
 	end
 end
 
+function _args(stack, n)
+	ret = Any[]
+	sizehint!(ret, n)
+	for _ = 1:n
+		push!(ret, pop!(stack))
+	end
+	return reverse!(ret)
+end
+
 function _unbrace(brace::Symbol, stack)
 	sentinel = OpenBraces[findfirst(==(brace), CloseBraces)]
 	opening = findlast(==(sentinel), stack)
 	@assert !isnothing(opening)
-	if brace == Symbol("]")
-		index = pop!(stack)
-		_ = pop!(stack) # sentinel
-		array = pop!(stack)
-		return (:index, array, index)
-	end
 
-	pops = reverse!(Any[pop!(stack) for _ = 1:(length(stack)-opening)])
+	args = _args(stack, length(stack)-opening)
 	_ = pop!(stack) # sentinel
 
 	if _top(stack) in Statements
 		keyword = pop!(stack)
-		(keyword, pops)
+		(keyword, args)
+	elseif _top(stack) isa AbstractString && brace == Symbol("]")
+		array = pop!(stack)
+		return (:index, array, args[1])
 	elseif _top(stack) isa AbstractString && brace == Symbol(")")
 		fn = pop!(stack)
-		@assert all(==(Symbol(",")), pops[2:2:end])
-		(:call, fn, pops[1:2:end])
+		@assert all(==(Symbol(",")), args[2:2:end])
+		(:call, fn, args[1:2:end])
 	else
-		(sentinel, pops)
+		(sentinel, args)
 	end
 end
 
-_ingest(next::AbstractString, auto::Pushdown) = push!(auto.stack, next)
+_ingest(auto::Pushdown, next::AbstractString) = push!(auto.stack, next)
 
-function _ingest(next::T, auto::Pushdown) where {T<:Number}
+function _ingest(auto::Pushdown, next::T) where {T<:Number}
 	if length(auto.stack) >= 2 && _top(auto.stack) in Binary
                 op = pop!(auto.stack)
                 prev = pop!(auto.stack)
@@ -95,7 +100,7 @@ function _ingest(next::T, auto::Pushdown) where {T<:Number}
         push!(auto.stack, node)
 end
 
-function _ingest(next::Symbol, auto::Pushdown)
+function _ingest(auto::Pushdown, next::Symbol)
         if next == Semicolon
 		node = _semicolon(auto.stack)
         elseif next in OpenBraces
@@ -133,7 +138,7 @@ julia> Caper.ast("return 1 + h'1f';")
 function ast(text::AbstractString)
 	auto = Pushdown()
         for next = lex(text)
-                _ingest(next, auto)
+                _ingest(auto, next)
         end
         return auto.stack
 end
