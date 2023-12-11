@@ -29,8 +29,15 @@ end
 
 
 @testset "Parser" begin
-        @test Caper.ast("x = 4; ") == [(Symbol(";"), "x", :(=), 4)]
-        @test Caper.ast("return x % b'1';") == [(Symbol(";"), :return, (:%, "x", 0b01))]
+        @test Caper.ast("x = 4; ") ==
+		Any[(Symbol(";"), "x", :(=), 4)]
+        @test Caper.ast("return x % b'1';") ==
+		Any[(Symbol(";"), :return, (:%, "x", 0b01))]
+	@test Caper.ast("return (x % b'1') + 1;") ==
+		Any[(Symbol(";"), :return, (:+, (Symbol("("), [(:%, "x", 0b01)]), 1))]
+	@test Caper.ast("if (x % b'1') { sum += 1; }") ==
+		Any[(:if, Any[(:%, "x", 0x01)]),
+			(Symbol("{"), Any[(Symbol(";"), "sum", :+=, 1)])]
 end
 
 

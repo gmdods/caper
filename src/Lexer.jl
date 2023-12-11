@@ -25,11 +25,14 @@ function _enclose(L::Lookahead, s::Int)
         _emit(L, s) == '\'' || return nothing
 end
 
-const Keywords = ["if", "else", "for", "while", "return", "break", "continue"]
+const KeywordString = ["if", "else", "for", "while", "return", "break", "continue"]
 const CmpChar = "<=>"
 const MathChar = "~&|+-*/%"
 const EqualChar = CmpChar * MathChar
 const SpecialChar = "'[]{}()@#!?^,.:;" * EqualChar
+
+_reserved(word::AbstractString) = (word in KeywordString) ? Symbol(word) : word
+
 
 function Base.iterate(L::Lookahead, state=1)
         local i = _find(L, !isspace, state)
@@ -42,9 +45,9 @@ function Base.iterate(L::Lookahead, state=1)
         if isletter(c)
                 w = _seek(L, !(isdigit | isletter), s)
                 v = _emit(L, s:w-1)
-                _checkemit(L, w) == '\'' || return (v, w) # Name
+                _checkemit(L, w) == '\'' || return (_reserved(v), w)
 
-		# Literal
+                # Literal
                 t = _find(L, ==('\''), w + 1)
                 !isnothing(t) || return nothing
 
