@@ -38,6 +38,11 @@ end
 	@test Caper.ast("if (x % b'1') { sum += 1; }") ==
 		Any[(:if, Any[(:%, "x", 0x01)]),
 			(Symbol("{"), Any[(Symbol(";"), "sum", :+=, 1)])]
+	@test Caper.ast("x = add(times(3, 2), 1 + 2);") ==
+		Any[(Symbol(";"), "x", :(=),
+			(:call, "add",
+				Any[(:+, 1, 2), (:call, "times", Any[2, 3])]))
+]
 end
 
 

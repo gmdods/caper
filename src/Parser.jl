@@ -11,6 +11,8 @@ const CloseBraces = Symbol.(collect(")]}"))
 const Keywords = Symbol.(KeywordString)
 const Statements = Symbol.(["if", "while", "for"])
 
+_top(stack) = isempty(stack) ? nothing : stack[end]
+
 _ingest(next::AbstractString, stack) = push!(stack, next)
 
 function _ingest(next::T, stack) where {T<:Number}
@@ -30,12 +32,12 @@ function _ingest(next::Symbol, stack)
                 stmt = pop!(stack)
                 if isempty(stack)
                         node = (next, stmt)
-                elseif stack[end] in Assign
+                elseif _top(stack) in Assign
                         equal = pop!(stack)
                         name = pop!(stack)
                         @assert name isa AbstractString
                         node = (next, name, equal, stmt)
-                elseif stack[end] in Keywords
+                elseif _top(stack) in Keywords
                         keyword = pop!(stack)
                         node = (next, keyword, stmt)
                 else
@@ -51,12 +53,13 @@ function _ingest(next::Symbol, stack)
                 pops = Any[pop!(stack) for _ = 1:(length(stack)-opening)]
                 _ = pop!(stack) # sentinel
 
-                if stack[end] in Statements
+                if _top(stack) in Statements
                         keyword = pop!(stack)
                         node = (keyword, pops)
-                elseif stack[end] isa AbstractString
+                elseif _top(stack) isa AbstractString
                         fn = pop!(stack)
-                        node = (:call, fn, pops)
+                        @assert all(==(Symbol(",")), pops[2:2:end])
+                        node = (:call, fn, pops[1:2:end])
                 else
                         node = (sentinel, pops)
                 end
