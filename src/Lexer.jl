@@ -28,8 +28,8 @@ const SpecialChar = "'[]{}()@#!?^,.:;" * EqualChar
 
 _reserved(word::AbstractString) = (word in KeywordString) ? Symbol(word) : word
 
-function Base.iterate(lexer::Lookahead, state=1)
-        local i = _find(lexer, !isspace, state)
+function Base.iterate(lexer::Lookahead, index=1)
+        local i = _find(lexer, !isspace, index)
         !isnothing(i) || return nothing
 
         local s = _find(lexer, isdigit | isletter | in(SpecialChar), i)

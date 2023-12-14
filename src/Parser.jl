@@ -29,92 +29,120 @@ const Precedence = Dict{Symbol, Int}(
 
 @assert all((b in keys(Precedence)) for b = Binary)
 
-mutable struct Pushdown
-	stack::Vector{Any}
-	precedence::Int
-	Pushdown() = new(Any[], 0)
-end
+_isoperator(token::Symbol) = token in Binary || token in Assign
+_preceeds(lhs::Symbol, rhs::Symbol) =
+	_isoperator(lhs) && _isoperator(rhs) && Precedence[lhs] <= Precedence[rhs]
 
 _top(stack) = isempty(stack) ? nothing : stack[end]
 
-function _semicolon(stack)
-	@assert length(stack) > 0
-	stmt = pop!(stack)
-	if isempty(stack)
-		(Semicolon, stmt)
-	elseif _top(stack) in Assign
-		equal = pop!(stack)
-		name = pop!(stack)
-		@assert name isa AbstractString
-		(Semicolon, name, equal, stmt)
-	elseif _top(stack) in Keywords
-		keyword = pop!(stack)
-		(Semicolon, keyword, stmt)
+struct Automata
+	lexer::Lookahead
+end
+
+# https://en.wikipedia.org/wiki/Shunting_yard_algorithm#The_algorithm_in_detail
+function _expression(auto::Automata, index::Int)
+	local out = Any[]
+	local stack = Any[]
+
+	while (iter = iterate(auto.lexer, index); !isnothing(iter))
+		(token, next) = iter
+		if token isa AbstractString
+			push!(stack, token)
+		elseif !(token isa Symbol)
+			push!(out, token)
+		elseif token == Symbol(";")
+			break
+		elseif token == Symbol("[") || token == Symbol("(")
+			push!(stack, token)
+		elseif token == Symbol("]") || token == Symbol(")")
+			opening = (token == Symbol("]")) ? Symbol("[") : Symbol("(")
+			while !isempty(stack) && stack[end] != opening
+				push!(out, pop!(stack))
+			end
+			isempty(stack) && break
+			_ = pop!(stack) # sentinel
+			if !isempty(stack) && stack[end] isa AbstractString
+				push!(out, pop!(stack))
+			end
+			token == Symbol("]") && push!(out, token)
+		elseif token == Symbol(",")
+			while !isempty(stack) && stack[end] != Symbol("(")
+				push!(out, pop!(stack))
+			end
+			isempty(stack) && break
+		elseif token in Binary || token in Assign
+			if !isempty(stack) && stack[end] isa AbstractString
+				push!(out, pop!(stack))
+			end
+
+			while !isempty(stack) && _preceeds(token, stack[end])
+				push!(out, pop!(stack))
+			end
+			push!(stack, token)
+		end
+		index = next
+	end
+	while !isempty(stack)
+		operator = pop!(stack)
+		@assert operator != Symbol(")")
+		push!(out, operator)
+	end
+	return (out, index)
+end
+
+function _scope(auto::Automata, token, depth, index, ahead)
+	# @info "scope" token depth index ahead
+	if token in Statements
+		(parenthesis, index) = iterate(auto.lexer, ahead)
+		@assert parenthesis == Symbol("(")
+		(out, ahead) = _expression(auto, index)
+		(parenthesis, index) = iterate(auto.lexer, ahead)
+		@assert parenthesis == Symbol(")")
+		node = (token, out)
+	elseif token == :return
+		(out, ahead) = _expression(auto, ahead)
+		(semicolon, index) = iterate(auto.lexer, ahead)
+		@assert semicolon == Symbol(";")
+		node = (token, out)
+	elseif token == Symbol("{")
+		node = nothing
+		depth += 1
+		index = ahead
+	elseif token == Symbol("}")
+		node = nothing
+		@assert depth > 0
+		depth -= 1
+		index = ahead
 	else
-		(Semicolon, stmt)
+		(out, ahead) = _expression(auto, index)
+		(semicolon, index) = iterate(auto.lexer, ahead)
+		@assert semicolon == Symbol(";")
+		node = (semicolon, out)
+	end
+	(node, depth, index)
+end
+
+@enum AutomataState TopLevel Scope
+
+function Base.iterate(auto::Automata, stateful=(TopLevel, 0, 1))
+	(state, depth, index) = stateful
+	iter = iterate(auto.lexer, index)
+	!isnothing(iter) || return nothing
+	(token, ahead) = iter
+
+	if state == TopLevel || state == Scope
+		while ((node, depth, index) = _scope(auto, token, depth, index, ahead);
+			isnothing(node))
+			iter = iterate(auto.lexer, index)
+			!isnothing(iter) || return nothing
+			(token, ahead) = iter
+		end
+		(depth => node, (Scope, depth, index))
 	end
 end
 
-function _args(stack, n)
-	ret = Any[]
-	sizehint!(ret, n)
-	for _ = 1:n
-		push!(ret, pop!(stack))
-	end
-	return reverse!(ret)
-end
-
-function _unbrace(brace::Symbol, stack)
-	sentinel = OpenBraces[findfirst(==(brace), CloseBraces)]
-	opening = findlast(==(sentinel), stack)
-	@assert !isnothing(opening)
-
-	args = _args(stack, length(stack)-opening)
-	_ = pop!(stack) # sentinel
-
-	if _top(stack) in Statements
-		keyword = pop!(stack)
-		(keyword, args)
-	elseif _top(stack) isa AbstractString && brace == Symbol("]")
-		array = pop!(stack)
-		return (:index, array, args[1])
-	elseif _top(stack) isa AbstractString && brace == Symbol(")")
-		fn = pop!(stack)
-		@assert all(==(Symbol(",")), args[2:2:end])
-		(:call, fn, args[1:2:end])
-	else
-		(sentinel, args)
-	end
-end
-
-_ingest(auto::Pushdown, next::AbstractString) = push!(auto.stack, next)
-
-function _ingest(auto::Pushdown, next::T) where {T<:Number}
-	if length(auto.stack) >= 2 && _top(auto.stack) in Binary
-                op = pop!(auto.stack)
-                prev = pop!(auto.stack)
-                node = (op, prev, next)
-        else
-                node = next
-        end
-        push!(auto.stack, node)
-end
-
-function _ingest(auto::Pushdown, next::Symbol)
-        if next == Semicolon
-		node = _semicolon(auto.stack)
-        elseif next in OpenBraces
-                node = next
-        elseif next in CloseBraces
-		node = _unbrace(next, auto.stack)
-        elseif next in Binary || next in Assign
-		auto.precedence = Precedence[next]
-		node = next
-        else
-		node = next
-        end
-	push!(auto.stack, node)
-end
+Base.eltype(::Type{Automata}) = Pair{Int, Any}
+Base.IteratorSize(::Type{Automata}) = Base.SizeUnknown()
 
 """
 	ast(text)
@@ -127,19 +155,15 @@ Reads a text into a datastructure.
 julia> using Caper
 
 julia> Caper.ast("x |= h'1f'; ")
-1-element Vector{Any}:
- (Symbol(";"), "x", :|=, 0x1f)
+1-element Vector{Pair{Int64, Any}}:
+ 0 => (Symbol(";"), Any["x", 0x1f, :|=])
 
 julia> Caper.ast("return 1 + h'1f';")
-1-element Vector{Any}:
- (Symbol(";"), :return, (:+, 1, 0x1f))
+1-element Vector{Pair{Int64, Any}}:
+ 0 => (:return, Any[1, 0x1f, :+])
 ```
 """
 function ast(text::AbstractString)
-	auto = Pushdown()
-        for next = lex(text)
-                _ingest(auto, next)
-        end
-        return auto.stack
+	return collect(Automata(Lookahead(text)))
 end
 
