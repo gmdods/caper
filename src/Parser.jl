@@ -31,8 +31,8 @@ const Precedence = Dict{Symbol, Int}(
 
 @assert all((o in keys(Precedence)) for o = Operator2)
 
-_preceeds(lhs, rhs) =
-	(lhs in Operator2) && (rhs in Operator2) && Precedence[lhs] <= Precedence[rhs]
+_preceeds(lhs, rhs) = (lhs in Operator2) && (rhs in Operator2) &&
+	Precedence[lhs] <= Precedence[rhs]
 _preceeds(token::Symbol) = Base.Fix1(_preceeds, token)
 
 _isa(T::Type) = Base.Fix2(isa, T)
@@ -55,12 +55,11 @@ function _expression(auto::Automata, index::Int)
 	local out = Any[]
 	local stack = Any[]
 
+	intro = nothing
 	while (iter = iterate(auto.lexer, index); !isnothing(iter))
 		(token, next) = iter
-		# @info "postfix" token _row(stack) _row(out)
-		if token isa AbstractString
-			push!(stack, token)
-		elseif !(token isa Symbol)
+		# @info "postfix" intro token _row(stack) _row(out)
+		if !(token isa Symbol)
 			push!(out, token)
 		elseif token == q";"
 			break
@@ -70,29 +69,32 @@ function _expression(auto::Automata, index::Int)
 			while _ifmove(!=(q"["), stack, out); end
 			isempty(stack) && break
 			_ = pop!(stack) # sentinel
-			if _ifmove(_isa(AbstractString), stack, out)
-				push!(out, :INDEX)
-			end
+			push!(out, :INDEX)
 		elseif token == q"("
-			push!(stack, token => 0)
+			if intro in Operator2 || isnothing(intro)
+				push!(stack, token)
+			else
+				push!(stack, token => 0)
+			end
 		elseif token == q")"
 			while _ifmove(!=(q"("), stack, out); end
 			isempty(stack) && break
 			sentinel = pop!(stack)
-			if _ifmove(_isa(AbstractString), stack, out)
+			if sentinel isa Pair
 				push!(out, :CALL => sentinel.second + 1)
 			end
 		elseif token == q","
 			while _ifmove(!=(q"("), stack, out); end
 			isempty(stack) && break
-			n = stack[end].second
-			stack[end] = q"(" => n + 1
+			if stack[end] isa Pair
+				n = stack[end].second
+				stack[end] = q"(" => n + 1
+			end
 		elseif token in Operator2
-			while _ifmove(!=(q"("), stack, out); end
-			_ifmove(_isa(AbstractString), stack, out)
-			_ifmove(_preceeds(token), stack, out)
+			while _ifmove(!=(q"(") & _preceeds(token), stack, out); end
 			push!(stack, token)
 		end
+		intro = token
 		index = next
 	end
 	while _ifmove(!=(q")"), stack, out); end

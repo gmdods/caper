@@ -35,13 +35,19 @@ end
 		Pair{Int, Any}[0 => (:return, ["x", 0b01, q"%"])]
         @test Caper.ast("return (x % b'1') + 1;") ==
 		Pair{Int, Any}[0 => (:return, ["x", 0b01, q"%", 1, q"+"])]
+	@test Caper.ast("return 0 + (1 + 2) * 3;") ==
+		Pair{Int, Any}[0 => (:return, [0, 1, 2, q"+", 3, q"*", q"+"])]
         @test Caper.ast("if (x % b'1') { sum += 1; }") ==
 		Pair{Int, Any}[0 => (:if, ["x", 0b01, q"%"]),
 				1 => (q";", ["sum", 1, q"+="])]
         @test Caper.ast("x = add(times(3, 2), 1 + 2);") ==
 		Pair{Int, Any}[0 => (q";",
-			Any["x", 3, 2, "times", :CALL => 2, 1, 2, q"+",
-				"add", :CALL => 2, q"="])]
+			Any["x", "add", "times", 3, 2, :CALL => 2, 1, 2, q"+",
+				:CALL => 2, q"="])]
+	@test Caper.ast("x = fn[3](y) + (fn[1])(x, y);") ==
+		Pair{Int, Any}[0 => (q";",
+			Any["x", "fn", 3, :INDEX, "y", :CALL => 1,
+				 "fn", 1, :INDEX, "x", "y", :CALL => 2, q"+", q"="])]
         @test Caper.ast(""" {
         	if (argc < 2) {
         		return 1;
@@ -49,9 +55,9 @@ end
         	printf(argv[1]);
         }
         """) == Pair{Int, Any}[
-	 1 => (:if, Any[2, "argc"]),
+	 1 => (:if, Any["argc", 2]),
 	 2 => (:return, Any[1]),
-	 1 => (q";", Any[1, "argv", :INDEX, "printf", :CALL => 1]),
+	 1 => (q";", Any["printf", "argv", 1, :INDEX, :CALL => 1]),
 	]
 
 
