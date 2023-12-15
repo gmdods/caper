@@ -55,7 +55,7 @@ end
         	printf(argv[1]);
         }
         """) == Pair{Int, Any}[
-	 1 => (:if, Any["argc", 2]),
+	 1 => (:if, Any["argc", 2, q"<"]),
 	 2 => (:return, Any[1]),
 	 1 => (q";", Any["printf", "argv", 1, :INDEX, :CALL => 1]),
 	]

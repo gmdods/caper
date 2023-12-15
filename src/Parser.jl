@@ -4,7 +4,7 @@
 Methods for parsing files
 """
 
-const Binary = Symbol.([collect(MathChar); collect(CmpChar) .* '='])
+const Binary = Symbol.([collect(MathChar); collect(CmpChar); collect(CmpChar) .* '='])
 const Assign = Symbol.(['='; collect(MathChar) .* '='])
 const Operator2 = [Binary; Assign]
 
