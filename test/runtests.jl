@@ -40,7 +40,7 @@ end
 				1 => (Symbol(";"), ["sum", 1, :(+=)])]
         @test Caper.ast("x = add(times(3, 2), 1 + 2);") ==
 		Pair{Int, Any}[0 => (Symbol(";"),
-			Any["x", 3, 2, "times", 1, 2, :+, "add", :(=)])]
+			Any["x", 3, 2, "times", :call, 1, 2, :+, "add", :call, :(=)])]
         @test Caper.ast(""" {
         	if (argc < 2) {
         		return 1;
@@ -50,7 +50,7 @@ end
         """) == Pair{Int, Any}[
 	 1 => (:if, Any[2, "argc"]),
 	 2 => (:return, Any[1]),
-	 1 => (Symbol(";"), Any[1, "argv", Symbol("]"), "printf"]),
+	 1 => (Symbol(";"), Any[1, "argv", :index, "printf", :call]),
 	]
 
 

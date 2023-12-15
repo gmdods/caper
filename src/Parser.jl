@@ -4,11 +4,13 @@
 Methods for parsing files
 """
 
-const Semicolon = Symbol(";")
 const Binary = Symbol.([collect(MathChar); collect(CmpChar) .* '='])
 const Assign = Symbol.(['='; collect(MathChar) .* '='])
+const Operator2 = [Binary; Assign]
+
 const OpenBraces = Symbol.(collect("([{"))
 const CloseBraces = Symbol.(collect(")]}"))
+
 const Keywords = Symbol.(KeywordString)
 const Statements = Symbol.(["if", "while", "for"])
 
@@ -27,13 +29,18 @@ const Precedence = Dict{Symbol, Int}(
 	:(*) => 8, :(/) => 8, :(%) => 8,
 )
 
-@assert all((b in keys(Precedence)) for b = Binary)
+@assert all((o in keys(Precedence)) for o = Operator2)
 
-_isoperator(token::Symbol) = token in Binary || token in Assign
 _preceeds(lhs::Symbol, rhs::Symbol) =
-	_isoperator(lhs) && _isoperator(rhs) && Precedence[lhs] <= Precedence[rhs]
+	(lhs in Operator2) && (rhs in Operator2) && Precedence[lhs] <= Precedence[rhs]
+_preceeds(token::Symbol) = Base.Fix1(_preceeds, token)
 
-_top(stack) = isempty(stack) ? nothing : stack[end]
+_isa(T::Type) = Base.Fix2(isa, T)
+
+_guard(f::Function, stack) = !isempty(stack) && f(stack[end])
+
+_ifmove(f::Function, stack, out) =
+	_guard(f, stack) && (push!(out, pop!(stack)); true)
 
 struct Automata
 	lexer::Lookahead
@@ -52,41 +59,37 @@ function _expression(auto::Automata, index::Int)
 			push!(out, token)
 		elseif token == Symbol(";")
 			break
-		elseif token == Symbol("[") || token == Symbol("(")
+		elseif token == Symbol("[")
 			push!(stack, token)
-		elseif token == Symbol("]") || token == Symbol(")")
-			opening = (token == Symbol("]")) ? Symbol("[") : Symbol("(")
-			while !isempty(stack) && stack[end] != opening
-				push!(out, pop!(stack))
-			end
+		elseif token == Symbol("]")
+			while _ifmove(!=(Symbol("[")), stack, out); end
 			isempty(stack) && break
 			_ = pop!(stack) # sentinel
-			if !isempty(stack) && stack[end] isa AbstractString
-				push!(out, pop!(stack))
+			if _ifmove(_isa(AbstractString), stack, out)
+				push!(out, :index)
 			end
-			token == Symbol("]") && push!(out, token)
-		elseif token == Symbol(",")
-			while !isempty(stack) && stack[end] != Symbol("(")
-				push!(out, pop!(stack))
-			end
+		elseif token == Symbol("(")
+			push!(stack, token)
+		elseif token == Symbol(")")
+			while _ifmove(!=(Symbol("(")), stack, out); end
 			isempty(stack) && break
-		elseif token in Binary || token in Assign
-			if !isempty(stack) && stack[end] isa AbstractString
-				push!(out, pop!(stack))
+			_ = pop!(stack) # sentinel
+			if _ifmove(_isa(AbstractString), stack, out)
+				push!(out, :call)
 			end
-
-			while !isempty(stack) && _preceeds(token, stack[end])
-				push!(out, pop!(stack))
-			end
+		elseif token == Symbol(",")
+			while _ifmove(!=(Symbol("(")), stack, out); end
+			isempty(stack) && break
+		elseif token in Operator2
+			while _ifmove(!=(Symbol("(")), stack, out); end
+			_ifmove(_isa(AbstractString), stack, out)
+			_ifmove(_preceeds(token), stack, out)
 			push!(stack, token)
 		end
 		index = next
 	end
-	while !isempty(stack)
-		operator = pop!(stack)
-		@assert operator != Symbol(")")
-		push!(out, operator)
-	end
+	while _ifmove(!=(Symbol(")")), stack, out); end
+	@assert isempty(stack)
 	return (out, index)
 end
 
