@@ -21,26 +21,27 @@ using Test, Documenter, Caper
 end
 
 @testset "Lexer" begin
-        @test Caper.lex("2 + 4") == [2, :+, 4]
-        @test Caper.lex("h'ff' & b'10' | b'1100' ") == [0xff, :&, 0b10, :|, 0b1100]
+        @test Caper.lex("2 + 4") == [2, q"+", 4]
+        @test Caper.lex("h'ff' & b'10' | b'1100' ") == [0xff, q"&", 0b10, q"|", 0b1100]
         @test Caper.lex("z += (x > y) ? x : y") ==
-              ["z", :+=, q"(", "x", :>, "y", q")", :?, "x", :(:), "y"]
+              ["z", q"+=", q"(", "x", q">", "y", q")", q"?", "x", q":", "y"]
 end
 
 
 @testset "Parser" begin
         @test Caper.ast("x = 4; ") ==
-		Pair{Int, Any}[0 => (q";", ["x", 4, :(=)])]
+		Pair{Int, Any}[0 => (q";", ["x", 4, q"="])]
         @test Caper.ast("return x % b'1';") ==
-		Pair{Int, Any}[0 => (:return, ["x", 0b01, :(%)])]
+		Pair{Int, Any}[0 => (:return, ["x", 0b01, q"%"])]
         @test Caper.ast("return (x % b'1') + 1;") ==
-		Pair{Int, Any}[0 => (:return, ["x", 0b01, :(%), 1, :(+)])]
+		Pair{Int, Any}[0 => (:return, ["x", 0b01, q"%", 1, q"+"])]
         @test Caper.ast("if (x % b'1') { sum += 1; }") ==
-		Pair{Int, Any}[0 => (:if, ["x", 0b01, :(%)]),
-				1 => (q";", ["sum", 1, :(+=)])]
+		Pair{Int, Any}[0 => (:if, ["x", 0b01, q"%"]),
+				1 => (q";", ["sum", 1, q"+="])]
         @test Caper.ast("x = add(times(3, 2), 1 + 2);") ==
 		Pair{Int, Any}[0 => (q";",
-			Any["x", 3, 2, "times", :CALL, 1, 2, :+, "add", :CALL, :(=)])]
+			Any["x", 3, 2, "times", :CALL => 2, 1, 2, q"+",
+				"add", :CALL => 2, q"="])]
         @test Caper.ast(""" {
         	if (argc < 2) {
         		return 1;
@@ -50,7 +51,7 @@ end
         """) == Pair{Int, Any}[
 	 1 => (:if, Any[2, "argc"]),
 	 2 => (:return, Any[1]),
-	 1 => (q";", Any[1, "argv", :INDEX, "printf", :CALL]),
+	 1 => (q";", Any[1, "argv", :INDEX, "printf", :CALL => 1]),
 	]
 
 

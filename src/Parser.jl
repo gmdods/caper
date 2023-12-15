@@ -31,7 +31,7 @@ const Precedence = Dict{Symbol, Int}(
 
 @assert all((o in keys(Precedence)) for o = Operator2)
 
-_preceeds(lhs::Symbol, rhs::Symbol) =
+_preceeds(lhs, rhs) =
 	(lhs in Operator2) && (rhs in Operator2) && Precedence[lhs] <= Precedence[rhs]
 _preceeds(token::Symbol) = Base.Fix1(_preceeds, token)
 
@@ -43,6 +43,8 @@ _ifmove(f::Function, stack, out) =
 	_guard(f, stack) && (push!(out, pop!(stack)); true)
 
 _row(a) = permutedims(copy(a))
+
+Base.:(==)(a::Pair{Symbol, Int}, b::Symbol) = a.first == b
 
 struct Automata
 	lexer::Lookahead
@@ -72,17 +74,19 @@ function _expression(auto::Automata, index::Int)
 				push!(out, :INDEX)
 			end
 		elseif token == q"("
-			push!(stack, token)
+			push!(stack, token => 0)
 		elseif token == q")"
 			while _ifmove(!=(q"("), stack, out); end
 			isempty(stack) && break
-			_ = pop!(stack) # sentinel
+			sentinel = pop!(stack)
 			if _ifmove(_isa(AbstractString), stack, out)
-				push!(out, :CALL)
+				push!(out, :CALL => sentinel.second + 1)
 			end
 		elseif token == q","
 			while _ifmove(!=(q"("), stack, out); end
 			isempty(stack) && break
+			n = stack[end].second
+			stack[end] = q"(" => n + 1
 		elseif token in Operator2
 			while _ifmove(!=(q"("), stack, out); end
 			_ifmove(_isa(AbstractString), stack, out)
