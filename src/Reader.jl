@@ -40,6 +40,7 @@ const Literals = Dict{Symbol,Function}(
 	:char => Character{UInt8}(),
 	:utf => Character{UInt32}(),
 	:re => (s -> Regex(s)),
+	:fmt => identity,
 	# N.B. Add more literals here
 )
 

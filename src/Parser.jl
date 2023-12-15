@@ -4,7 +4,7 @@
 Methods for parsing files
 """
 
-const Binary = Symbol.([collect(MathChar); collect(CmpChar); collect(CmpChar) .* '='])
+const Binary = Symbol.([collect(MathChar); collect(CmpChar); collect(CmpChar) .* '='; "!="])
 const Assign = Symbol.(['='; collect(MathChar) .* '='])
 const Operator2 = [Binary; Assign]
 
@@ -13,6 +13,7 @@ const CloseBraces = Symbol.(collect(")]}"))
 
 const Keywords = Symbol.(KeywordString)
 const Statements = [q"if", q"while", q"for"]
+const Commands = [q"break", q"continue", q"goto"] # gasp!
 
 const Precedence = Dict{Symbol, Int}(
 	q"=" => 1,
@@ -110,7 +111,7 @@ end
 
 function _scope(auto::Automata, token, depth, intro, index)
 	# @info "scope" token depth intro index
-node = nothing
+	node = nothing
 	if token == q"for" # special form
 		index = _expect(auto, index, q"(")
 		(pre, index) = _expression(auto, index)
@@ -127,19 +128,32 @@ node = nothing
 		node = (token, out)
 	elseif token == q"return"
 		(out, index) = _expression(auto, index)
-		(semicolon, index) = iterate(auto.lexer, index)
-		@assert semicolon == q";"
+		index = _expect(auto, index, q";")
 		node = (token, out)
+	elseif token in Commands
+		(label, index) = iterate(auto.lexer, index)
+		if label == q";"
+			node = (token, :LOOP)
+		else
+			@assert label isa AbstractString
+			index = _expect(auto, index, q";")
+			node = (token, label)
+		end
 	elseif token == q"{"
 		depth += 1
 	elseif token == q"}"
 		@assert depth > 0
 		depth -= 1
 	else
-		(out, index) = _expression(auto, intro)
-		(semicolon, index) = iterate(auto.lexer, index)
-		@assert semicolon == q";"
-		node = (semicolon, out)
+		(peek, ahead) = iterate(auto.lexer, index)
+		if peek == q":"
+			node = (q":", token)
+			index = ahead
+		else
+			(out, index) = _expression(auto, intro)
+			index = _expect(auto, index, q";")
+			node = (q";", out)
+		end
 	end
 	(node, depth, index)
 end

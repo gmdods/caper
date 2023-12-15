@@ -23,7 +23,7 @@ _rseek(lexer::Lookahead, p, index) = something(_rfind(lexer, p, index), 0)
 const KeywordString = ["if", "else", "for", "while", "return", "break", "continue"]
 const CmpChar = "<=>"
 const MathChar = "~&|+-*/%"
-const EqualChar = CmpChar * MathChar
+const EqualChar = CmpChar * MathChar * '!'
 const SpecialChar = "'[]{}()@#!?^,.:;" * EqualChar
 
 _reserved(word::AbstractString) = (word in KeywordString) ? Symbol(word) : word

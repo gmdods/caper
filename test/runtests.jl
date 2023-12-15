@@ -52,20 +52,38 @@ end
         	if (argc < 2) {
         		return 1;
         	}
-        	printf(argv[1]);
+        	print(argv[1]);
         }
         """) == Pair{Int, Any}[
-	 1 => (:if, Any["argc", 2, q"<"]),
-	 2 => (:return, Any[1]),
-	 1 => (q";", Any["printf", "argv", 1, :INDEX, :CALL => 1]),
+	 1 => (q"if", Any["argc", 2, q"<"]),
+	 2 => (q"return", Any[1]),
+	 1 => (q";", Any["print", "argv", 1, :INDEX, :CALL => 1]),
 	]
         @test Caper.ast("""
 		for (i = 0; i != 10; i += 1) {
-			printf(i);
+			print(fmt'%d', i);
 		}
         """) == Pair{Int, Any}[
-	 0 => (:for, Any["i", 0, :(=)], Any["i", 10, :(=)], Any["i", 1, :+=])
-	 1 => (q";", Any["printf", "i", :CALL => 1])
+	 0 => (q"for", Any["i", 0, q"="], Any["i", 10, q"!="], Any["i", 1, q"+="])
+	 1 => (q";", Any["print", "%d", "i", :CALL => 2])
+	]
+        @test Caper.ast("""
+		outer: for (i = 0; i != 10; i += 1) {
+			if (i == 1) continue;
+			for (j = 0; j != 10; j += 1) {
+				print(fmt'%d', i);
+				if (i >= 5) break outer;
+			}
+		}
+        """) == Pair{Int, Any}[
+	 0 => (q":", "outer")
+	 0 => (q"for", Any["i", 0, q"="], Any["i", 10, q"!="], Any["i", 1, q"+="])
+	 1 => (q"if", Any["i", 1, q"=="])
+	 1 => (q"continue", :LOOP)
+	 1 => (q"for", Any["j", 0, q"="], Any["j", 10, q"!="], Any["j", 1, q"+="])
+	 2 => (q";", Any["print", "%d", "i", :CALL => 2])
+	 2 => (q"if", Any["i", 5, q">="])
+	 2 => (q"break", "outer")
 	]
 
 
