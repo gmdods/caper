@@ -102,17 +102,30 @@ function _expression(auto::Automata, index::Int)
 	return (out, index)
 end
 
+function _expect(auto::Automata, index, expected::Symbol)
+	(token, index) = iterate(auto.lexer, index)
+	@assert token == expected
+	index
+end
+
 function _scope(auto::Automata, token, depth, intro, index)
 	# @info "scope" token depth intro index
-	node = nothing
-	if token in Statements
-		(parenthesis, index) = iterate(auto.lexer, index)
-		@assert parenthesis == q"("
+node = nothing
+	if token == q"for" # special form
+		index = _expect(auto, index, q"(")
+		(pre, index) = _expression(auto, index)
+		index = _expect(auto, index, q";")
+		(cond, index) = _expression(auto, index)
+		index = _expect(auto, index, q";")
+		(post, index) = _expression(auto, index)
+		index = _expect(auto, index, q")")
+		node = (token, pre, cond, post)
+	elseif token in Statements
+		index = _expect(auto, index, q"(")
 		(out, index) = _expression(auto, index)
-		(parenthesis, index) = iterate(auto.lexer, index)
-		@assert parenthesis == q")"
+		index = _expect(auto, index, q")")
 		node = (token, out)
-	elseif token == :return
+	elseif token == q"return"
 		(out, index) = _expression(auto, index)
 		(semicolon, index) = iterate(auto.lexer, index)
 		@assert semicolon == q";"

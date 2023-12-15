@@ -59,6 +59,14 @@ end
 	 2 => (:return, Any[1]),
 	 1 => (q";", Any["printf", "argv", 1, :INDEX, :CALL => 1]),
 	]
+        @test Caper.ast("""
+		for (i = 0; i != 10; i += 1) {
+			printf(i);
+		}
+        """) == Pair{Int, Any}[
+	 0 => (:for, Any["i", 0, :(=)], Any["i", 10, :(=)], Any["i", 1, :+=])
+	 1 => (q";", Any["printf", "i", :CALL => 1])
+	]
 
 
 end
