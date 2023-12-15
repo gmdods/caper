@@ -12,21 +12,21 @@ const OpenBraces = Symbol.(collect("([{"))
 const CloseBraces = Symbol.(collect(")]}"))
 
 const Keywords = Symbol.(KeywordString)
-const Statements = Symbol.(["if", "while", "for"])
+const Statements = [q"if", q"while", q"for"]
 
 const Precedence = Dict{Symbol, Int}(
-	:(=) => 1,
-	:(|=) => 1, Symbol("~=") => 1, :(&=) => 1,
-	:(+=) => 1, :(-=) => 1, :(*=) => 1,
-	:(/=) => 1, :(%=) => 1,
+	q"=" => 1,
+	q"|=" => 1, q"~=" => 1, q"&=" => 1,
+	q"+=" => 1, q"-=" => 1, q"*=" => 1,
+	q"/=" => 1, q"%=" => 1,
 
-	:(|) => 2,
-	:(~) => 3,
-	:(&) => 4,
-	:(==) => 5, :(!=) => 5,
-	:(<) => 6, :(>) => 6, :(<=) => 6, :(>=) => 6,
-	:(+) => 7, :(-) => 7,
-	:(*) => 8, :(/) => 8, :(%) => 8,
+	q"|" => 2,
+	q"~" => 3,
+	q"&" => 4,
+	q"==" => 5, q"!=" => 5,
+	q"<" => 6, q">" => 6, q"<=" => 6, q">=" => 6,
+	q"+" => 7, q"-" => 7,
+	q"*" => 8, q"/" => 8, q"%" => 8,
 )
 
 @assert all((o in keys(Precedence)) for o = Operator2)
@@ -42,6 +42,8 @@ _guard(f::Function, stack) = !isempty(stack) && f(stack[end])
 _ifmove(f::Function, stack, out) =
 	_guard(f, stack) && (push!(out, pop!(stack)); true)
 
+_row(a) = permutedims(copy(a))
+
 struct Automata
 	lexer::Lookahead
 end
@@ -53,73 +55,71 @@ function _expression(auto::Automata, index::Int)
 
 	while (iter = iterate(auto.lexer, index); !isnothing(iter))
 		(token, next) = iter
+		# @info "postfix" token _row(stack) _row(out)
 		if token isa AbstractString
 			push!(stack, token)
 		elseif !(token isa Symbol)
 			push!(out, token)
-		elseif token == Symbol(";")
+		elseif token == q";"
 			break
-		elseif token == Symbol("[")
+		elseif token == q"["
 			push!(stack, token)
-		elseif token == Symbol("]")
-			while _ifmove(!=(Symbol("[")), stack, out); end
+		elseif token == q"]"
+			while _ifmove(!=(q"["), stack, out); end
 			isempty(stack) && break
 			_ = pop!(stack) # sentinel
 			if _ifmove(_isa(AbstractString), stack, out)
-				push!(out, :index)
+				push!(out, :INDEX)
 			end
-		elseif token == Symbol("(")
+		elseif token == q"("
 			push!(stack, token)
-		elseif token == Symbol(")")
-			while _ifmove(!=(Symbol("(")), stack, out); end
+		elseif token == q")"
+			while _ifmove(!=(q"("), stack, out); end
 			isempty(stack) && break
 			_ = pop!(stack) # sentinel
 			if _ifmove(_isa(AbstractString), stack, out)
-				push!(out, :call)
+				push!(out, :CALL)
 			end
-		elseif token == Symbol(",")
-			while _ifmove(!=(Symbol("(")), stack, out); end
+		elseif token == q","
+			while _ifmove(!=(q"("), stack, out); end
 			isempty(stack) && break
 		elseif token in Operator2
-			while _ifmove(!=(Symbol("(")), stack, out); end
+			while _ifmove(!=(q"("), stack, out); end
 			_ifmove(_isa(AbstractString), stack, out)
 			_ifmove(_preceeds(token), stack, out)
 			push!(stack, token)
 		end
 		index = next
 	end
-	while _ifmove(!=(Symbol(")")), stack, out); end
+	while _ifmove(!=(q")"), stack, out); end
 	@assert isempty(stack)
 	return (out, index)
 end
 
-function _scope(auto::Automata, token, depth, index, ahead)
-	# @info "scope" token depth index ahead
+function _scope(auto::Automata, token, depth, intro, index)
+	# @info "scope" token depth intro index
+	node = nothing
 	if token in Statements
-		(parenthesis, index) = iterate(auto.lexer, ahead)
-		@assert parenthesis == Symbol("(")
-		(out, ahead) = _expression(auto, index)
-		(parenthesis, index) = iterate(auto.lexer, ahead)
-		@assert parenthesis == Symbol(")")
+		(parenthesis, index) = iterate(auto.lexer, index)
+		@assert parenthesis == q"("
+		(out, index) = _expression(auto, index)
+		(parenthesis, index) = iterate(auto.lexer, index)
+		@assert parenthesis == q")"
 		node = (token, out)
 	elseif token == :return
-		(out, ahead) = _expression(auto, ahead)
-		(semicolon, index) = iterate(auto.lexer, ahead)
-		@assert semicolon == Symbol(";")
+		(out, index) = _expression(auto, index)
+		(semicolon, index) = iterate(auto.lexer, index)
+		@assert semicolon == q";"
 		node = (token, out)
-	elseif token == Symbol("{")
-		node = nothing
+	elseif token == q"{"
 		depth += 1
-		index = ahead
-	elseif token == Symbol("}")
-		node = nothing
+	elseif token == q"}"
 		@assert depth > 0
 		depth -= 1
-		index = ahead
 	else
-		(out, ahead) = _expression(auto, index)
-		(semicolon, index) = iterate(auto.lexer, ahead)
-		@assert semicolon == Symbol(";")
+		(out, index) = _expression(auto, intro)
+		(semicolon, index) = iterate(auto.lexer, index)
+		@assert semicolon == q";"
 		node = (semicolon, out)
 	end
 	(node, depth, index)
@@ -131,14 +131,15 @@ function Base.iterate(auto::Automata, stateful=(TopLevel, 0, 1))
 	(state, depth, index) = stateful
 	iter = iterate(auto.lexer, index)
 	!isnothing(iter) || return nothing
-	(token, ahead) = iter
+	((token, index), intro) = iter, index
 
 	if state == TopLevel || state == Scope
-		while ((node, depth, index) = _scope(auto, token, depth, index, ahead);
+		node = nothing
+		while ((node, depth, index) = _scope(auto, token, depth, intro, index);
 			isnothing(node))
 			iter = iterate(auto.lexer, index)
 			!isnothing(iter) || return nothing
-			(token, ahead) = iter
+			((token, index), intro) = iter, index
 		end
 		(depth => node, (Scope, depth, index))
 	end

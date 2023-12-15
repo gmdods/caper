@@ -12,3 +12,8 @@ Base.parse(::Type{Char}, s::AbstractString) = convert(Char, tryparse(Char, s))
 
 Base.:|(fn::Vararg{<:Function,N}) where {N} = x -> mapreduce(f -> f(x), |, fn)
 Base.:&(fn::Vararg{<:Function,N}) where {N} = x -> mapreduce(f -> f(x), &, fn)
+
+macro q_str(str)
+	:(Symbol($str))
+end
+
