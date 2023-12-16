@@ -24,7 +24,8 @@ const KeywordString = ["if", "else", "for", "while", "return", "break", "continu
 const CmpChar = "<=>"
 const MathChar = "~&|+-*/%"
 const EqualChar = CmpChar * MathChar * '!'
-const SpecialChar = "'[]{}()@#!?^,.:;" * EqualChar
+const SpecialChar = "\"'[]{}()@#!?^,.:;" * EqualChar
+const Quoted = '"'
 
 _reserved(word::AbstractString) = (word in KeywordString) ? Symbol(word) : word
 
@@ -39,10 +40,10 @@ function Base.iterate(lexer::Lookahead, index=1)
         if isletter(c)
                 w = _seek(lexer, !(isdigit | isletter), s)
                 v = _emit(lexer, s:w-1)
-                _checkemit(lexer, w) == '\'' || return (_reserved(v), w)
+                _checkemit(lexer, w) == Quoted || return (_reserved(v), w)
 
                 # Literal
-                t = _find(lexer, ==('\''), w + 1)
+                t = _find(lexer, ==(Quoted), w + 1)
                 !isnothing(t) || return nothing
 
                 r = literal(_emit(lexer, w+1:t-1), Symbol(v))
@@ -51,6 +52,11 @@ function Base.iterate(lexer::Lookahead, index=1)
                 t = _seek(lexer, !isdigit, s)
                 r = literal(_emit(lexer, s:t-1))
                 (r, t)
+	elseif c == Quoted
+                t = _find(lexer, ==(Quoted), s + 1)
+                !isnothing(t) || return nothing
+                r = _emit(lexer, s+1:t-1)
+                (r, t + 1)
         elseif c in EqualChar && _checkemit(lexer, s + 1) == '='
                 r = Symbol(c * '=')
                 (r, s + 2)

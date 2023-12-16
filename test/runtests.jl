@@ -22,7 +22,7 @@ end
 
 @testset "Lexer" begin
         @test Caper.lex("2 + 4") == [2, q"+", 4]
-        @test Caper.lex("h'ff' & b'10' | b'1100' ") == [0xff, q"&", 0b10, q"|", 0b1100]
+        @test Caper.lex("h\"ff\" & b\"10\" | b\"1100\" ") == [0xff, q"&", 0b10, q"|", 0b1100]
         @test Caper.lex("z += (x > y) ? x : y") ==
               ["z", q"+=", q"(", "x", q">", "y", q")", q"?", "x", q":", "y"]
 end
@@ -31,13 +31,13 @@ end
 @testset "Parser" begin
         @test Caper.ast("x = 4; ") ==
 		Pair{Int, Any}[0 => (q";", ["x", 4, q"="])]
-        @test Caper.ast("return x % b'1';") ==
+        @test Caper.ast("return x % b\"1\";") ==
 		Pair{Int, Any}[0 => (:return, ["x", 0b01, q"%"])]
-        @test Caper.ast("return (x % b'1') + 1;") ==
+        @test Caper.ast("return (x % b\"1\") + 1;") ==
 		Pair{Int, Any}[0 => (:return, ["x", 0b01, q"%", 1, q"+"])]
 	@test Caper.ast("return 0 + (1 + 2) * 3;") ==
 		Pair{Int, Any}[0 => (:return, [0, 1, 2, q"+", 3, q"*", q"+"])]
-        @test Caper.ast("if (x % b'1') { sum += 1; }") ==
+        @test Caper.ast("if (x % b\"1\") { sum += 1; }") ==
 		Pair{Int, Any}[0 => (:if, ["x", 0b01, q"%"]),
 				1 => (q";", ["sum", 1, q"+="])]
         @test Caper.ast("x = add(times(3, 2), 1 + 2);") ==
@@ -61,7 +61,7 @@ end
 	]
         @test Caper.ast("""
 		for (i = 0; i != 10; i += 1) {
-			print(fmt'%d', i);
+			print(fmt"%d", i);
 		}
         """) == Pair{Int, Any}[
 	 0 => (q"for", Any["i", 0, q"="], Any["i", 10, q"!="], Any["i", 1, q"+="])
@@ -71,7 +71,7 @@ end
 		outer: for (i = 0; i != 10; i += 1) {
 			if (i == 1) continue;
 			for (j = 0; j != 10; j += 1) {
-				print(fmt'%d', i);
+				print(fmt"%d", i);
 				if (i >= 5) break outer;
 			}
 		}
