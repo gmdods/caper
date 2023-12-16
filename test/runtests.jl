@@ -31,6 +31,8 @@ end
 @testset "Parser" begin
         @test Caper.ast("x = 4; ") ==
 		Pair{Int, Any}[0 => (q";", ["x", 4, q"="])]
+        @test Caper.ast("x = 4 + !y + 1; ") ==
+		Pair{Int, Any}[0 => (q";", ["x", 4, "y", q"!", q"+", 1, q"+", q"="])]
         @test Caper.ast("return x % b\"1\";") ==
 		Pair{Int, Any}[0 => (:return, ["x", 0b01, q"%"])]
         @test Caper.ast("return (x % b\"1\") + 1;") ==

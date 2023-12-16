@@ -4,9 +4,11 @@
 Methods for parsing files
 """
 
-const Binary = Symbol.([collect(MathChar); collect(CmpChar); collect(CmpChar) .* '='; "!="])
-const Assign = Symbol.(['='; collect(MathChar) .* '='])
-const Operator2 = [Binary; Assign]
+const Operator1 = Symbol.(collect("!^"))
+const Operator2 = Symbol.([
+	'='; collect(MathChar) .* '=';
+	collect(MathChar); collect(CmpChar); collect(CmpChar) .* '='; "!="
+])
 
 const OpenBraces = Symbol.(collect("([{"))
 const CloseBraces = Symbol.(collect(")]}"))
@@ -32,8 +34,8 @@ const Precedence = Dict{Symbol, Int}(
 
 @assert all((o in keys(Precedence)) for o = Operator2)
 
-_preceeds(lhs, rhs) = (lhs in Operator2) && (rhs in Operator2) &&
-	Precedence[lhs] <= Precedence[rhs]
+_preceeds(lhs, rhs) = (rhs in Operator1) ||
+	((lhs in Operator2) && (rhs in Operator2) && Precedence[lhs] <= Precedence[rhs])
 _preceeds(token::Symbol) = Base.Fix1(_preceeds, token)
 
 _isa(T::Type) = Base.Fix2(isa, T)
@@ -94,6 +96,8 @@ function _expression(auto::Automata, index::Int)
 		elseif token in Operator2
 			while _ifmove(!=(q"(") & _preceeds(token), stack, out); end
 			push!(stack, token)
+		elseif token in Operator1
+			push!(stack, token)
 		end
 		intro = token
 		index = next
@@ -104,7 +108,9 @@ function _expression(auto::Automata, index::Int)
 end
 
 function _expect(auto::Automata, index, expected::Symbol)
-	(token, index) = iterate(auto.lexer, index)
+	state = iterate(auto.lexer, index)
+	@assert !isnothing(state)
+	(token, index) = state
 	@assert token == expected
 	index
 end
