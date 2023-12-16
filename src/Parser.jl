@@ -232,11 +232,11 @@ Reads a text into a datastructure.
 ```jldoctest
 julia> using Caper
 
-julia> Caper.ast("x |= h'1f'; ")
+julia> Caper.ast(\"""x |= h"1f"; \""")
 1-element Vector{Pair{Int64, Any}}:
  0 => (Symbol(";"), Any["x", 0x1f, :|=])
 
-julia> Caper.ast("return 1 + h'1f';")
+julia> Caper.ast(\"""return 1 + h"1f"; \""")
 1-element Vector{Pair{Int64, Any}}:
  0 => (:return, Any[1, 0x1f, :+])
 ```

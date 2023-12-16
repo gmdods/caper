@@ -82,13 +82,13 @@ Emits all tokens in a text.
 ```jldoctest
 julia> using Caper
 
-julia> Caper.lex("1 + h'1f'")
+julia> Caper.lex(\"""1 + h"1f" \""")
 3-element Vector{Any}:
     1
      :+
  0x1f
 
-julia> Caper.lex("x |= h'1f'")
+julia> Caper.lex(\"""x |= h"1f" \""")
 3-element Vector{Any}:
      "x"
      :|=
