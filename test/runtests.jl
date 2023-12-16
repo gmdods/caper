@@ -88,6 +88,16 @@ end
 	 2 => (q"break", "outer")
 	]
 
+	@test Caper.ast("""
+	int :: delta = 0;
+	int^ :: ptr = nil;
+	:: mask = h"ff";
+        """) == Pair{Int, Any}[
+	 0 => (q"::", Any["int"], "delta", Any[0])
+	 0 => (q"::", Any["int", q"^"], "ptr", Any[q"nil"])
+	 0 => (q"::", nothing, "mask", Any[0xff])
+	]
+
 
 end
 

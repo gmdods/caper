@@ -54,7 +54,7 @@ struct Automata
 end
 
 # https://en.wikipedia.org/wiki/Shunting_yard_algorithm#The_algorithm_in_detail
-function _expression(auto::Automata, index::Int)
+function _expression(auto::Automata, index::Int; type=false)
 	local out = Any[]
 	local stack = Any[]
 
@@ -97,7 +97,15 @@ function _expression(auto::Automata, index::Int)
 			while _ifmove(!=(q"(") & _preceeds(token), stack, out); end
 			push!(stack, token)
 		elseif token in Operator1
-			push!(stack, token)
+			if type
+				push!(out, token)
+			else
+				push!(stack, token)
+			end
+		elseif token == q"::"
+			break
+		elseif token == q"nil"
+			push!(out, token)
 		end
 		intro = token
 		index = next
@@ -107,42 +115,69 @@ function _expression(auto::Automata, index::Int)
 	return (out, index)
 end
 
-function _expect(auto::Automata, index, expected::Symbol)
+
+function _expect(auto::Automata, index, cond::Function)
 	state = iterate(auto.lexer, index)
 	@assert !isnothing(state)
 	(token, index) = state
-	@assert token == expected
-	index
+	@assert cond(token)
+	(token, index)
+end
+
+_expect(auto::Automata, index, expected::Symbol) = _expect(auto, index, ==(expected))
+
+function _declare(auto::Automata, index)
+	intro = index
+	(out, index) = _expression(auto, index)
+	state = iterate(auto.lexer, index)
+	@assert !isnothing(state)
+	(token, index) = state
+	if token == q";"
+		node = (q";", out)
+	elseif token == q"::"
+		(type, _) = _expression(auto, intro; type=true)
+		type = isempty(type) ? nothing : type
+		(token, index) = _expect(auto, index, _isa(AbstractString))
+		(_, index) = _expect(auto, index, q"=")
+		(out, index) = _expression(auto, index)
+		(_, index) = _expect(auto, index, q";")
+		node = (q"::", type, token, out)
+	else
+		@assert false
+	end
+	(node, index)
 end
 
 function _scope(auto::Automata, token, depth, intro, index)
 	# @info "scope" token depth intro index
 	node = nothing
 	if token == q"for" # special form
-		index = _expect(auto, index, q"(")
+		(_, index) = _expect(auto, index, q"(")
 		(pre, index) = _expression(auto, index)
-		index = _expect(auto, index, q";")
+		(_, index) = _expect(auto, index, q";")
 		(cond, index) = _expression(auto, index)
-		index = _expect(auto, index, q";")
+		(_, index) = _expect(auto, index, q";")
 		(post, index) = _expression(auto, index)
-		index = _expect(auto, index, q")")
+		(_, index) = _expect(auto, index, q")")
 		node = (token, pre, cond, post)
 	elseif token in Statements
-		index = _expect(auto, index, q"(")
+		(_, index) = _expect(auto, index, q"(")
 		(out, index) = _expression(auto, index)
-		index = _expect(auto, index, q")")
+		(_, index) = _expect(auto, index, q")")
 		node = (token, out)
 	elseif token == q"return"
 		(out, index) = _expression(auto, index)
-		index = _expect(auto, index, q";")
+		(_, index) = _expect(auto, index, q";")
 		node = (token, out)
 	elseif token in Commands
-		(label, index) = iterate(auto.lexer, index)
+		state = iterate(auto.lexer, index)
+		@assert !isnothing(state)
+		(label, index) = state
 		if label == q";"
 			node = (token, :LOOP)
 		else
 			@assert label isa AbstractString
-			index = _expect(auto, index, q";")
+			(_, index) = _expect(auto, index, q";")
 			node = (token, label)
 		end
 	elseif token == q"{"
@@ -151,14 +186,14 @@ function _scope(auto::Automata, token, depth, intro, index)
 		@assert depth > 0
 		depth -= 1
 	else
-		(peek, ahead) = iterate(auto.lexer, index)
+		state = iterate(auto.lexer, index)
+		@assert !isnothing(state)
+		(peek, ahead) = state
 		if peek == q":"
 			node = (q":", token)
 			index = ahead
 		else
-			(out, index) = _expression(auto, intro)
-			index = _expect(auto, index, q";")
-			node = (q";", out)
+			(node, index) = _declare(auto, intro)
 		end
 	end
 	(node, depth, index)

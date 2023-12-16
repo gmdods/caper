@@ -20,7 +20,7 @@ _seek(lexer::Lookahead, p, index) = something(_find(lexer, p, index), lexer.leng
 _rfind(lexer::Lookahead, p, index) = findprev(p, lexer.text, index)
 _rseek(lexer::Lookahead, p, index) = something(_rfind(lexer, p, index), 0)
 
-const KeywordString = ["if", "else", "for", "while", "return", "break", "continue"]
+const KeywordString = ["nil", "if", "else", "for", "while", "return", "break", "continue"]
 const CmpChar = "<=>"
 const MathChar = "~&|+-*/%"
 const EqualChar = CmpChar * MathChar * '!'
@@ -59,6 +59,9 @@ function Base.iterate(lexer::Lookahead, index=1)
                 (r, t + 1)
         elseif c in EqualChar && _checkemit(lexer, s + 1) == '='
                 r = Symbol(c * '=')
+                (r, s + 2)
+        elseif c == ':' && _checkemit(lexer, s + 1) == ':'
+                r = q"::"
                 (r, s + 2)
         else
                 r = Symbol(c)

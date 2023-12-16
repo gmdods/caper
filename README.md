@@ -26,3 +26,16 @@ re"\p{L}[\p{L}\p{N}]*\s+=\s+\p{N}+" # Regex
 fmt"%s = %u;" # Format
 ```
 
+## Declarations
+
+Variable declarations are similar to Fortran.
+Type specification are always value-first.
+
+```c
+int :: delta = 0; // equiv. int :: delta; delta = 0;
+int^ :: ptr = nil;
+int[3] :: array = {0, 1, 2};
+int^(int, int) :: fn = add;
+:: mask = h"ff"; // auto
+```
+
