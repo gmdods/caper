@@ -75,7 +75,7 @@ end
 	 1 => (q";", Any["print", "%d", "i", :CALL => 2])
 	]
         @test Caper.ast("""
-		outer: for (i = 0; i != 10; i += 1) {
+		outer :: for (i = 0; i != 10; i += 1) {
 			if (i == 1) continue;
 			for (j = 0; j != 10; j += 1) {
 				print(Fmt"%d", i);
@@ -83,7 +83,7 @@ end
 			}
 		}
         """) == Pair{Int, Any}[
-	 0 => (q":", "outer")
+	 0 => (q"::", "outer")
 	 0 => (q"for", Any["i", 0, q"="], Any["i", 10, q"!="], Any["i", 1, q"+="])
 	 1 => (q"if", Any["i", 1, q"=="])
 	 1 => (q"continue", :LOOP)
@@ -94,51 +94,51 @@ end
 	]
 
 	@test Caper.ast("""
-	int :: delta = 0;
-	int^ :: ptr = nil;
-	:: mask = h"ff";
+	int : delta = 0;
+	int^ : ptr = nil;
+	: mask = h"ff";
         """) == Pair{Int, Any}[
-	 0 => (q"::", Any["int"], "delta", Any[0])
-	 0 => (q"::", Any["int", q"^"], "ptr", Any[q"nil"])
-	 0 => (q"::", nothing, "mask", Any[0xff])
+	 0 => (q":", Any["int"], "delta", Any[0])
+	 0 => (q":", Any["int", q"^"], "ptr", Any[q"nil"])
+	 0 => (q":", nothing, "mask", Any[0xff])
 	]
 
 	@test Caper.ast("""
-	int^[3] :: array_of_ptr;
-	int[3]^ :: ptr_of_array;
+	int^[3] : array_of_ptr;
+	int[3]^ : ptr_of_array;
         """) == Pair{Int, Any}[
-	 0 => (q"::", Any["int", q"^", 3, :INDEX], "array_of_ptr", nothing)
-	 0 => (q"::", Any["int", 3, :INDEX, q"^"], "ptr_of_array", nothing)
+	 0 => (q":", Any["int", q"^", 3, :INDEX], "array_of_ptr", nothing)
+	 0 => (q":", Any["int", 3, :INDEX, q"^"], "ptr_of_array", nothing)
 	]
 
 	@test Caper.ast("""
-	int :: delta = 0;
-	int^ :: ptr = delta^;
+	int : delta = 0;
+	int^ : ptr = delta^;
         """) == Pair{Int, Any}[
-	 0 => (q"::", Any["int"], "delta", Any[0])
-	 0 => (q"::", Any["int", q"^"], "ptr", Any["delta", q"^"])
+	 0 => (q":", Any["int"], "delta", Any[0])
+	 0 => (q":", Any["int", q"^"], "ptr", Any["delta", q"^"])
 	]
 
 	@test Caper.ast("""
-	int(int, int) :: add = fn (int :: x; int :: y;) {
+	int(int, int) : add = fn (int : x; int : y;) {
 		return x + y;
 	};
         """) == Pair{Int, Any}[
-	 0 => (q"::", Any["int", "int", "int", :CALL => 2], "add",
-		(q"fn", Any[(q"::", Any["int"], "x", nothing),
-			    (q"::", Any["int"], "y", nothing)],
+	 0 => (q":", Any["int", "int", "int", :CALL => 2], "add",
+		(q"fn", Any[(q":", Any["int"], "x", nothing),
+			    (q":", Any["int"], "y", nothing)],
 			Any[1 => (q"return", Any["x", "y", q"+"])]))
 	]
 
 	@test Caper.ast("""
-	int(int, int) :: max = fn (int :: x; int :: y;) {
+	int(int, int) : max = fn (int : x; int : y;) {
 		if (x < y) return y;
 		return x;
 	};
         """) == Pair{Int, Any}[
-	 0 => (q"::", Any["int", "int", "int", :CALL => 2], "max",
-		(q"fn", Any[(q"::", Any["int"], "x", nothing),
-			    (q"::", Any["int"], "y", nothing)],
+	 0 => (q":", Any["int", "int", "int", :CALL => 2], "max",
+		(q"fn", Any[(q":", Any["int"], "x", nothing),
+			    (q":", Any["int"], "y", nothing)],
 			Any[
 			 1 => (q"if", Any["x", "y", q"<"])
 			 1 => (q"return", Any["y"])
@@ -149,17 +149,17 @@ end
 
 @testset "Code" begin
 	@test Caper.ast("""
-	void(byte[_], byte[_], size_t) :: memcpy = fn (:: src; :: dst; :: nbytes;) {
+	void(byte[_], byte[_], size_t) : memcpy = fn (: src; : dst; : nbytes;) {
 	    for (; nbytes > 0; nbytes -= 1) {
 		dst[nbytes] = src[nbytes];
 	    }
 	};
 	""") == Pair{Int, Any}[
-	 0 => (q"::", Any["void", "byte", "_", :INDEX, "byte", "_", :INDEX, "size_t", :CALL => 3],
+	 0 => (q":", Any["void", "byte", "_", :INDEX, "byte", "_", :INDEX, "size_t", :CALL => 3],
 		"memcpy",
-		(:fn, Any[(q"::", nothing, "src", nothing),
-			(q"::", nothing, "dst", nothing),
-			(q"::", nothing, "nbytes", nothing)],
+		(:fn, Any[(q":", nothing, "src", nothing),
+			(q":", nothing, "dst", nothing),
+			(q":", nothing, "nbytes", nothing)],
 			Any[
 			 1 => (q"for", Any[], Any["nbytes", 0, q">"], Any["nbytes", 1, q"-="]),
 			 2 => (q";", Any["dst", "nbytes", :INDEX, "src", "nbytes", :INDEX, q"="])

@@ -7,6 +7,10 @@ DOC 	= ./docs/make.jl
 .PHONY: all
 all: test doc
 
+.PHONY: clean
+clean:
+	rm -rf ./docs/build
+
 .PHONY: test
 test: $(TEST) $(DEPS)
 	julia --project=. $(TEST)

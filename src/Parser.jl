@@ -101,7 +101,7 @@ function _expression(auto::Automata, index::Int; type=false)
 			push!(stack, token)
 		elseif token in Operator1_Post
 			push!(out, token)
-		elseif token == q"::"
+		elseif token == q":"
 			break
 		elseif token == q"nil"
 			push!(out, token)
@@ -156,7 +156,7 @@ function _declare(auto::Automata, index; depth=0)
 	(token, index) = _required(auto, index)
 	if token == q";"
 		node = (q";", out)
-	elseif token == q"::"
+	elseif token == q":"
 		type = isempty(out) ? nothing : out
 		(token, index) = _expect(auto, index, _isa(AbstractString))
 		(then, index) = _required(auto, index)
@@ -173,7 +173,7 @@ function _declare(auto::Automata, index; depth=0)
 			@assert then == q";"
 			out = nothing
 		end
-		node = (q"::", type, token, out)
+		node = (q":", type, token, out)
 	else
 		@assert false
 	end
@@ -219,8 +219,8 @@ function _scope(auto::Automata, token, index; depth, intro)
 		node = token
 	else
 		(peek, ahead) = _required(auto, index)
-		if peek == q":"
-			node = (q":", token)
+		if peek == q"::"
+			node = (q"::", token)
 			index = ahead
 		else
 			(node, index) = _declare(auto, intro; depth)
