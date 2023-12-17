@@ -4,6 +4,8 @@
 Methods for reading and interpreting macros
 """
 
+using Dates
+
 const UnsignedTypes = [UInt8, UInt16, UInt32, UInt64, UInt]
 const UnsignedWidths = [8, 16, 32, 64]
 
@@ -40,6 +42,8 @@ const Literals = Dict{Symbol,Function}(
 	q"Char" => Character{UInt8}(),
 	q"Utf" => Character{UInt32}(),
 	q"Re" => (s -> Regex(s)),
+	q"D" => (s -> Date(s)),
+	q"T" => (s -> Time(s)),
 	q"Fmt" => identity,
 	# N.B. Add more literals here
 )

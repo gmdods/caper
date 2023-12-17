@@ -1,5 +1,7 @@
 using Test, Documenter, Caper
 
+using Dates
+
 @testset "Reader" begin
         @test Caper.literal("1234") == 1234
         @test Caper.literal("012") == 12
@@ -18,6 +20,9 @@ using Test, Documenter, Caper
         @test Caper.literal("[0-9]+", q"Re") == r"[0-9]+"
         @test Caper.literal(raw"\p{L}[\p{L}\p{N}]*\s+=\s+\p{N}+", q"Re") ==
               r"\p{L}[\p{L}\p{N}]*\s+=\s+\p{N}+"
+
+	@test Caper.literal("2000-01-01", q"D") == Date(2000, 01, 01)
+	@test Caper.literal("12:00:01", q"T") == Time(12, 00, 01)
 end
 
 @testset "Lexer" begin
