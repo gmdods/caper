@@ -11,5 +11,6 @@ include("./tools.jl")
 include("./Reader.jl")
 include("./Lexer.jl")
 include("./Parser.jl")
+include("./Codegen.jl")
 
 end # module Caper

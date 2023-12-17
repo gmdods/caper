@@ -73,6 +73,8 @@ function _expression(auto::Automata, index::Int)
 		# @info "postfix" intro token _row(stack) _row(out)
 		if !(token isa Symbol)
 			push!(out, token)
+		elseif token == q"_"
+			push!(out, token)
 		elseif token == q";"
 			break
 		elseif token == q"["
@@ -151,7 +153,7 @@ function _function(auto::Automata, index; depth)
 	end
 	index = ahead
 
-	defn = Any[]
+	defn = Pair{Int, Any}[]
 	state = (index, depth, true)
 	while (iter = iterate(auto, state); !isnothing(iter))
 		(link, state) = iter

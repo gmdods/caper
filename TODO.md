@@ -6,7 +6,7 @@
 
 - [x] Write a C-like lexer
 
-- [ ] Write a C-like parser
+- [x] Write a C-like parser
 
 - [ ] Write a Caper interpreter in Julia
 

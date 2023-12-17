@@ -21,7 +21,7 @@ _rfind(lexer::Lookahead, p, index) = findprev(p, lexer.text, index)
 _rseek(lexer::Lookahead, p, index) = something(_rfind(lexer, p, index), 0)
 
 const KeywordString = [
-	"nil", "fn", "include",
+	"_", "nil", "fn", "include",
 	"if", "else", "for", "while",
 	"return", "break", "continue"
 ]

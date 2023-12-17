@@ -59,12 +59,12 @@ end
         	if (argc < 2) {
         		return 1;
         	}
-        	printf(argv[1]);
+        	puts(argv[1]);
         }
         """) == Pair{Int, Any}[
 	 1 => (q"if", Any["argc", 2, q"<"]),
 	 2 => (q"return", Any[1]),
-	 1 => (q";", Any["printf", "argv", 1, :INDEX, :CALL => 1]),
+	 1 => (q";", Any["puts", "argv", 1, :INDEX, :CALL => 1]),
 	]
         @test Caper.ast("""
 		for (i = 0; i != 10; i += 1) {
@@ -127,7 +127,7 @@ end
 	 0 => (q":", Any["int", "int", "int", :CALL => 2], "add",
 		(q"fn", Any[(q":", Any["int"], "x", nothing),
 			    (q":", Any["int"], "y", nothing)],
-			Any[1 => (q"return", Any["x", "y", q"+"])]))
+			Pair{Int, Any}[1 => (q"return", Any["x", "y", q"+"])]))
 	]
 
 	@test Caper.ast("""
@@ -139,7 +139,7 @@ end
 	 0 => (q":", Any["int", "int", "int", :CALL => 2], "max",
 		(q"fn", Any[(q":", Any["int"], "x", nothing),
 			    (q":", Any["int"], "y", nothing)],
-			Any[
+			Pair{Int, Any}[
 			 1 => (q"if", Any["x", "y", q"<"])
 			 1 => (q"return", Any["y"])
 			 1 => (q"return", Any["x"])
@@ -155,12 +155,12 @@ end
 	    }
 	};
 	""") == Pair{Int, Any}[
-	 0 => (q":", Any["void", "byte", "_", :INDEX, "byte", "_", :INDEX, "size_t", :CALL => 3],
+	 0 => (q":", Any["void", "byte", q"_", :INDEX, "byte", q"_", :INDEX, "size_t", :CALL => 3],
 		"memcpy",
 		(:fn, Any[(q":", nothing, "src", nothing),
 			(q":", nothing, "dst", nothing),
 			(q":", nothing, "nbytes", nothing)],
-			Any[
+			Pair{Int, Any}[
 			 1 => (q"for", Any[], Any["nbytes", 0, q">"], Any["nbytes", 1, q"-="]),
 			 2 => (q";", Any["dst", "nbytes", :INDEX, "src", "nbytes", :INDEX, q"="])
 			]))
@@ -168,20 +168,23 @@ end
 
 	file = read("test/echo.ca", String)
 	@test Caper.ast(file) == Pair{Int, Any}[
-	 0 => (q"include", "<assert.h>")
 	 0 => (q"include", "<stdio.h>")
-	 0 => (q"include", "<stdlib.h>")
-	 0 => (q":", Any["int", "int", "char", q"^", "_", :INDEX, :CALL => 2],
+	 0 => (q":", Any["int", "int", "char", q"^", q"_", :INDEX, :CALL => 2],
 		"main",
 		(q"fn", Any[(q":", Any["int"], "argc", nothing),
-			    (q":", Any["char", q"^", "_", :INDEX], "argv", nothing)],
-			Any[
+			    (q":", Any["char", q"^", q"_", :INDEX], "argv", nothing)],
+			Pair{Int, Any}[
 			 1 => (q"if", Any["argc", 2, q"<"]),
-			 1 => (q"return", Any[1]),
-			 1 => (q";", Any["printf", "argv", 1, :INDEX, :CALL => 1]),
+			 2 => (q"return", Any[1]),
+			 1 => (q";", Any["puts", "argv", 1, :INDEX, :CALL => 1]),
 			 1 => (q"return", Any[0])
 			]))
 	]
 end
 
+@testset "Codegen" begin
+	file = read("test/echo.ca", String)
+	file_c = read("test/echo.c", String)
+	@test Caper.gen(file) == file_c
+end
 
