@@ -3,6 +3,7 @@
 Base.ascii(c::Char) = isascii(c) ? UInt8(c) : nothing
 
 @inline isname(c::Char) = isletter(c) | (c == '_')
+@inline capitalize(s::AbstractString) = uppercase(s[1]) * s[2:end]
 
 function Base.tryparse(::Type{Char}, s::AbstractString)
         local char = unescape_string(s)

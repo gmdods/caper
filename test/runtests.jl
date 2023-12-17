@@ -5,24 +5,24 @@ using Test, Documenter, Caper
         @test Caper.literal("012") == 12
         @test Caper.literal("-1") == -1
 
-        @test Caper.literal("42", :u) == UInt(42)
-        @test Caper.literal("11101", :b) == 0b11101
-        @test Caper.literal("3ff", :h) == 0x03ff
+        @test Caper.literal("42", q"U") == UInt(42)
+        @test Caper.literal("11101", q"B") == 0b11101
+        @test Caper.literal("3ff", q"H") == 0x03ff
 
-        @test Caper.literal("1.0", :f) == 1.0
-        @test Caper.literal("1e3", :f) == 1e3
+        @test Caper.literal("1.0", q"F") == 1.0
+        @test Caper.literal("1e3", q"F") == 1e3
 
-        @test Caper.literal("a", :char) == 0x61
-        @test Caper.literal("é", :utf) == 0x0000_00_e9
+        @test Caper.literal("a", q"Char") == 0x61
+        @test Caper.literal("é", q"Utf") == 0x0000_00_e9
 
-        @test Caper.literal("[0-9]+", :re) == r"[0-9]+"
-        @test Caper.literal(raw"\p{L}[\p{L}\p{N}]*\s+=\s+\p{N}+", :re) ==
+        @test Caper.literal("[0-9]+", q"Re") == r"[0-9]+"
+        @test Caper.literal(raw"\p{L}[\p{L}\p{N}]*\s+=\s+\p{N}+", q"Re") ==
               r"\p{L}[\p{L}\p{N}]*\s+=\s+\p{N}+"
 end
 
 @testset "Lexer" begin
         @test Caper.lex("2 + 4") == [2, q"+", 4]
-        @test Caper.lex("""h"ff" & b"10" | b"1100" """) == [0xff, q"&", 0b10, q"|", 0b1100]
+        @test Caper.lex("h'ff' & b'10' | b'1100'") == [0xff, q"&", 0b10, q"|", 0b1100]
         @test Caper.lex("z += (x > y) ? x : y") ==
               ["z", q"+=", q"(", "x", q">", "y", q")", q"?", "x", q":", "y"]
 end
@@ -33,13 +33,13 @@ end
 		Pair{Int, Any}[0 => (q";", ["x", 4, q"="])]
         @test Caper.ast("x = 4 + !y + 1; ") ==
 		Pair{Int, Any}[0 => (q";", ["x", 4, "y", q"!", q"+", 1, q"+", q"="])]
-        @test Caper.ast("""return x % b"1"; """) ==
+        @test Caper.ast("return x % b'1';") ==
 		Pair{Int, Any}[0 => (:return, ["x", 0b01, q"%"])]
-        @test Caper.ast("""return (x % b"1") + 1; """) ==
+        @test Caper.ast("return (x % b'1') + 1;") ==
 		Pair{Int, Any}[0 => (:return, ["x", 0b01, q"%", 1, q"+"])]
 	@test Caper.ast("return 0 + (1 + 2) * 3;") ==
 		Pair{Int, Any}[0 => (:return, [0, 1, 2, q"+", 3, q"*", q"+"])]
-        @test Caper.ast("""if (x % b"1") { sum += 1; } """) ==
+        @test Caper.ast("if (x % b'1') { sum += 1; }") ==
 		Pair{Int, Any}[0 => (:if, ["x", 0b01, q"%"]),
 				1 => (q";", ["sum", 1, q"+="])]
         @test Caper.ast("x = add(times(3, 2), 1 + 2);") ==
@@ -63,7 +63,7 @@ end
 	]
         @test Caper.ast("""
 		for (i = 0; i != 10; i += 1) {
-			print(fmt"%d", i);
+			print(Fmt"%d", i);
 		}
         """) == Pair{Int, Any}[
 	 0 => (q"for", Any["i", 0, q"="], Any["i", 10, q"!="], Any["i", 1, q"+="])
@@ -73,7 +73,7 @@ end
 		outer: for (i = 0; i != 10; i += 1) {
 			if (i == 1) continue;
 			for (j = 0; j != 10; j += 1) {
-				print(fmt"%d", i);
+				print(Fmt"%d", i);
 				if (i >= 5) break outer;
 			}
 		}

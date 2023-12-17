@@ -52,7 +52,7 @@ function Base.iterate(lexer::Lookahead, index=1)
 		peek = _checkemit(lexer, w)
                 peek in Quoted || return (_reserved(v), w)
 		(q, t) = _quoted(lexer, w)
-                r = literal(q, Symbol(v))
+		r = literal(q, Symbol(capitalize(v)))
 		(r, t)
         elseif isdigit(c)
                 t = _seek(lexer, !isdigit, s)
@@ -85,13 +85,13 @@ Emits all tokens in a text.
 ```jldoctest
 julia> using Caper
 
-julia> Caper.lex(\"""1 + h"1f" \""")
+julia> Caper.lex("1 + h'1f'")
 3-element Vector{Any}:
     1
      :+
  0x1f
 
-julia> Caper.lex(\"""x |= h"1f" \""")
+julia> Caper.lex("x |= h'1f'")
 3-element Vector{Any}:
      "x"
      :|=
