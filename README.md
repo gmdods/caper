@@ -42,3 +42,12 @@ int^(int, int) :: fn = add;
 :: mask = h"ff"; // auto
 ```
 
+## Functions
+
+```c
+void(byte_t[_], byte_t[_], size_t) :: memcpy = fn (:: src; :: dst; :: nbytes;) {
+    for (; nbytes > 0; nbytes -= 1) {
+        dst[nbytes] = src[nbytes];
+    }
+}
+```

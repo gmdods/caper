@@ -147,4 +147,25 @@ end
 	]
 end
 
+@testset "Code" begin
+	@test Caper.ast("""
+	void(byte[_], byte[_], size_t) :: memcpy = fn (:: src; :: dst; :: nbytes;) {
+	    for (; nbytes > 0; nbytes -= 1) {
+		dst[nbytes] = src[nbytes];
+	    }
+	};
+	""") == Pair{Int, Any}[
+	 0 => (q"::", Any["void", "byte", "_", :INDEX, "byte", "_", :INDEX, "size_t", :CALL => 3],
+		"memcpy",
+		(:fn, Any[(q"::", nothing, "src", nothing),
+			(q"::", nothing, "dst", nothing),
+			(q"::", nothing, "nbytes", nothing)],
+			Any[
+			 1 => (q"for", Any[], Any["nbytes", 0, q">"], Any["nbytes", 1, q"-="]),
+			 2 => (q";", Any["dst", "nbytes", :INDEX, "src", "nbytes", :INDEX, q"="])
+			]))
+	]
+
+end
+
 

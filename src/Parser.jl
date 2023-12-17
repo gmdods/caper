@@ -167,6 +167,7 @@ function _declare(auto::Automata, index; depth=0)
 			else
 				(out, index) = _expression(auto, index)
 			end
+			# @info "decl" index _row(out) _row(type)
 			(_, index) = _expect(auto, index, q";")
 		else
 			@assert then == q";"
