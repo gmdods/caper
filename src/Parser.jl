@@ -4,7 +4,8 @@
 Methods for parsing files
 """
 
-const Operator1 = Symbol.(collect("!^"))
+const Operator1_Pre = Symbol.(collect("!"))
+const Operator1_Post = Symbol.(collect("^"))
 const Operator2 = Symbol.([
 	'='; collect(MathChar) .* '=';
 	collect(MathChar); collect(CmpChar); collect(CmpChar) .* '='; "!="
@@ -34,7 +35,7 @@ const Precedence = Dict{Symbol, Int}(
 
 @assert all((o in keys(Precedence)) for o = Operator2)
 
-_preceeds(lhs, rhs) = (rhs in Operator1) ||
+_preceeds(lhs, rhs) = (rhs in Operator1_Pre) ||
 	((lhs in Operator2) && (rhs in Operator2) && Precedence[lhs] <= Precedence[rhs])
 _preceeds(token::Symbol) = Base.Fix1(_preceeds, token)
 
@@ -96,12 +97,10 @@ function _expression(auto::Automata, index::Int; type=false)
 		elseif token in Operator2
 			while _ifmove(!=(q"(") & _preceeds(token), stack, out); end
 			push!(stack, token)
-		elseif token in Operator1
-			if type
-				push!(out, token)
-			else
-				push!(stack, token)
-			end
+		elseif token in Operator1_Pre
+			push!(stack, token)
+		elseif token in Operator1_Post
+			push!(out, token)
 		elseif token == q"::"
 			break
 		elseif token == q"nil"
@@ -116,10 +115,14 @@ function _expression(auto::Automata, index::Int; type=false)
 end
 
 
-function _expect(auto::Automata, index, cond::Function)
+function _required(auto::Automata, index)
 	state = iterate(auto.lexer, index)
 	@assert !isnothing(state)
-	(token, index) = state
+	state
+end
+
+function _expect(auto::Automata, index, cond::Function)
+	(token, index) = _required(auto, index)
 	@assert cond(token)
 	(token, index)
 end
@@ -127,7 +130,6 @@ end
 _expect(auto::Automata, index, expected::Symbol) = _expect(auto, index, ==(expected))
 
 function _declare(auto::Automata, index)
-	intro = index
 	(out, index) = _expression(auto, index)
 	state = iterate(auto.lexer, index)
 	@assert !isnothing(state)
@@ -135,12 +137,16 @@ function _declare(auto::Automata, index)
 	if token == q";"
 		node = (q";", out)
 	elseif token == q"::"
-		(type, _) = _expression(auto, intro; type=true)
-		type = isempty(type) ? nothing : type
+		type = isempty(out) ? nothing : out
 		(token, index) = _expect(auto, index, _isa(AbstractString))
-		(_, index) = _expect(auto, index, q"=")
-		(out, index) = _expression(auto, index)
-		(_, index) = _expect(auto, index, q";")
+		(then, index) = _required(auto, index)
+		if then == q"="
+			(out, index) = _expression(auto, index)
+			(_, index) = _expect(auto, index, q";")
+		else
+			@assert then == q";"
+			out = nothing
+		end
 		node = (q"::", type, token, out)
 	else
 		@assert false
@@ -170,9 +176,7 @@ function _scope(auto::Automata, token, depth, intro, index)
 		(_, index) = _expect(auto, index, q";")
 		node = (token, out)
 	elseif token in Commands
-		state = iterate(auto.lexer, index)
-		@assert !isnothing(state)
-		(label, index) = state
+		(label, index) = _required(auto, index)
 		if label == q";"
 			node = (token, :LOOP)
 		else
@@ -186,9 +190,7 @@ function _scope(auto::Automata, token, depth, intro, index)
 		@assert depth > 0
 		depth -= 1
 	else
-		state = iterate(auto.lexer, index)
-		@assert !isnothing(state)
-		(peek, ahead) = state
+		(peek, ahead) = _required(auto, index)
 		if peek == q":"
 			node = (q":", token)
 			index = ahead

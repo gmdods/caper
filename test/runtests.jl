@@ -103,7 +103,21 @@ end
 	 0 => (q"::", nothing, "mask", Any[0xff])
 	]
 
+	@test Caper.ast("""
+	int^[3] :: array_of_ptr;
+	int[3]^ :: ptr_of_array;
+        """) == Pair{Int, Any}[
+	 0 => (q"::", Any["int", q"^", 3, :INDEX], "array_of_ptr", nothing)
+	 0 => (q"::", Any["int", 3, :INDEX, q"^"], "ptr_of_array", nothing)
+	]
 
+	@test Caper.ast("""
+	int :: delta = 0;
+	int^ :: ptr = delta^;
+        """) == Pair{Int, Any}[
+	 0 => (q"::", Any["int"], "delta", Any[0])
+	 0 => (q"::", Any["int", q"^"], "ptr", Any["delta", q"^"])
+	]
 end
 
 
