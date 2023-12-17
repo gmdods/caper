@@ -45,6 +45,7 @@ const Literals = Dict{Symbol,Function}(
 	q"D" => (s -> Date(s)),
 	q"T" => (s -> Time(s)),
 	q"Fmt" => identity,
+	q"C_lib" => (s -> "<$s>"),
 	# N.B. Add more literals here
 )
 

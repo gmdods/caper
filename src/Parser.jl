@@ -16,7 +16,7 @@ const CloseBraces = Symbol.(collect(")]}"))
 
 const Keywords = Symbol.(KeywordString)
 const Statements = [q"if", q"while", q"for"]
-const Commands = [q"break", q"continue", q"goto"] # gasp!
+const Labels = [q"break", q"continue", q"goto"] # gasp!
 
 const Precedence = Dict{Symbol, Int}(
 	q"=" => 1,
@@ -131,13 +131,13 @@ end
 
 function _expect(auto::Automata, index, T::Type)
 	(token, index) = _required(auto, index)
-	@assert token isa T _error_message(auto, index, "required token.")
+	@assert token isa T _error_message(auto, index, "expected type $T and got $(typeof(token)).")
 	(token, index)
 end
 
 function _expect(auto::Automata, index, expected::Symbol)
 	(token, index) = _required(auto, index)
-	@assert token == expected _error_message(auto, index, "expected '$expected'.")
+	@assert token == expected _error_message(auto, index, "expected `$expected` and got `$token`.")
 	(token, index)
 end
 
@@ -183,12 +183,12 @@ function _declare(auto::Automata, index; depth=0)
 			# @info "decl" index _row(out) _row(type)
 			(_, index) = _expect(auto, index, q";")
 		else
-			@assert then == q";" _error_message(auto, index, "expected ';'.")
+			@assert then == q";" _error_message(auto, index, "expected `;`.")
 			out = nothing
 		end
 		node = (q":", type, token, out)
 	else
-		@assert false _error_message(auto, index, "expected one of ';:'.")
+		@assert false _error_message(auto, index, "expected one of `;:`.")
 	end
 	(node, index)
 end
@@ -214,7 +214,11 @@ function _scope(auto::Automata, token, index; depth, intro)
 		(out, index) = _expression(auto, index)
 		(_, index) = _expect(auto, index, q";")
 		node = (token, out)
-	elseif token in Commands
+	elseif token == q"include"
+		(lib, index) = _expect(auto, index, AbstractString)
+		(_, index) = _expect(auto, index, q";")
+		node = (token, lib)
+	elseif token in Labels
 		(label, index) = _required(auto, index)
 		if label == q";"
 			node = (token, :LOOP)

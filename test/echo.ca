@@ -1,0 +1,10 @@
+include C_lib"assert.h";
+include C_lib"stdio.h";
+include C_lib"stdlib.h";
+
+int(int, char^[_]) : main = fn (int : argc; char^[_] : argv;) {
+	if (argc < 2)
+		return 1;
+	printf(argv[1]);
+	return 0;
+};

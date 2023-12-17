@@ -147,7 +147,7 @@ end
 	]
 end
 
-@testset "Code" begin
+@testset "Files" begin
 	@test Caper.ast("""
 	void(byte[_], byte[_], size_t) : memcpy = fn (: src; : dst; : nbytes;) {
 	    for (; nbytes > 0; nbytes -= 1) {
@@ -163,6 +163,23 @@ end
 			Any[
 			 1 => (q"for", Any[], Any["nbytes", 0, q">"], Any["nbytes", 1, q"-="]),
 			 2 => (q";", Any["dst", "nbytes", :INDEX, "src", "nbytes", :INDEX, q"="])
+			]))
+	]
+
+	file = read("test/echo.ca", String)
+	@test Caper.ast(file) == Pair{Int, Any}[
+	 0 => (q"include", "<assert.h>")
+	 0 => (q"include", "<stdio.h>")
+	 0 => (q"include", "<stdlib.h>")
+	 0 => (q":", Any["int", "int", "char", q"^", "_", :INDEX, :CALL => 2],
+		"main",
+		(q"fn", Any[(q":", Any["int"], "argc", nothing),
+			    (q":", Any["char", q"^", "_", :INDEX], "argv", nothing)],
+			Any[
+			 1 => (q"if", Any["argc", 2, q"<"]),
+			 1 => (q"return", Any[1]),
+			 1 => (q";", Any["printf", "argv", 1, :INDEX, :CALL => 1]),
+			 1 => (q"return", Any[0])
 			]))
 	]
 end
