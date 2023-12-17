@@ -25,7 +25,16 @@ const CmpChar = "<=>"
 const MathChar = "~&|+-*/%"
 const EqualChar = CmpChar * MathChar * '!'
 const SpecialChar = "\"'[]{}()@#!?^,.:;" * EqualChar
-const Quoted = '"'
+const Quoted = "\'\""
+
+function _quoted(lexer::Lookahead, s::Int)
+	c = _checkemit(lexer, s)
+	@assert c in Quoted
+	t = _find(lexer, ==(c), s + 1)
+	!isnothing(t) || return nothing
+	r = _emit(lexer, s+1:t-1)
+	(r, t + 1)
+end
 
 _reserved(word::AbstractString) = (word in KeywordString) ? Symbol(word) : word
 
@@ -33,30 +42,24 @@ function Base.iterate(lexer::Lookahead, index=1)
         local i = _find(lexer, !isspace, index)
         !isnothing(i) || return nothing
 
-        local s = _find(lexer, isdigit | isletter | in(SpecialChar), i)
+        local s = _find(lexer, isdigit | isname | in(SpecialChar), i)
         !isnothing(s) || return nothing
 
         local c = _emit(lexer, s)
-        if isletter(c)
-                w = _seek(lexer, !(isdigit | isletter), s)
+        if isname(c)
+                w = _seek(lexer, !(isdigit | isname), s)
                 v = _emit(lexer, s:w-1)
-                _checkemit(lexer, w) == Quoted || return (_reserved(v), w)
-
-                # Literal
-                t = _find(lexer, ==(Quoted), w + 1)
-                !isnothing(t) || return nothing
-
-                r = literal(_emit(lexer, w+1:t-1), Symbol(v))
-                (r, t + 1)
+		peek = _checkemit(lexer, w)
+                peek in Quoted || return (_reserved(v), w)
+		(q, t) = _quoted(lexer, w)
+                r = literal(q, Symbol(v))
+		(r, t)
         elseif isdigit(c)
                 t = _seek(lexer, !isdigit, s)
                 r = literal(_emit(lexer, s:t-1))
                 (r, t)
-	elseif c == Quoted
-                t = _find(lexer, ==(Quoted), s + 1)
-                !isnothing(t) || return nothing
-                r = _emit(lexer, s+1:t-1)
-                (r, t + 1)
+	elseif c in Quoted
+		_quoted(lexer, s)
         elseif c in EqualChar && _checkemit(lexer, s + 1) == '='
                 r = Symbol(c * '=')
                 (r, s + 2)

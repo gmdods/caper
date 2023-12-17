@@ -2,6 +2,8 @@
 
 Base.ascii(c::Char) = isascii(c) ? UInt8(c) : nothing
 
+@inline isname(c::Char) = isletter(c) | (c == '_')
+
 function Base.tryparse(::Type{Char}, s::AbstractString)
         local char = unescape_string(s)
         length(char) == 1 || return nothing
