@@ -129,11 +129,31 @@ end
 
 _expect(auto::Automata, index, expected::Symbol) = _expect(auto, index, ==(expected))
 
-function _declare(auto::Automata, index)
+function _function(auto::Automata, index; depth)
+	(_, index) = _expect(auto, index, q"(")
+	args = Any[]
+	while ((next, ahead) = _required(auto, index); next != q")")
+		(var, index) = _declare(auto, index);
+		push!(args, var)
+	end
+	index = ahead
+
+	defn = Any[]
+	state = (index, depth, true)
+	while (iter = iterate(auto, state); !isnothing(iter))
+		(link, state) = iter
+		# @info "fn" iter defn
+		link == (depth => nothing) && break
+		!isnothing(link.second) && push!(defn, link)
+	end
+	(index, _, _) = state
+	node = (q"fn", args, defn)
+	(node, index)
+end
+
+function _declare(auto::Automata, index; depth=0)
 	(out, index) = _expression(auto, index)
-	state = iterate(auto.lexer, index)
-	@assert !isnothing(state)
-	(token, index) = state
+	(token, index) = _required(auto, index)
 	if token == q";"
 		node = (q";", out)
 	elseif token == q"::"
@@ -141,7 +161,12 @@ function _declare(auto::Automata, index)
 		(token, index) = _expect(auto, index, _isa(AbstractString))
 		(then, index) = _required(auto, index)
 		if then == q"="
-			(out, index) = _expression(auto, index)
+			(keyword, ahead) = _required(auto, index)
+			if keyword == q"fn" # special form
+				(out, index) = _function(auto, ahead; depth)
+			else
+				(out, index) = _expression(auto, index)
+			end
 			(_, index) = _expect(auto, index, q";")
 		else
 			@assert then == q";"
@@ -154,7 +179,7 @@ function _declare(auto::Automata, index)
 	(node, index)
 end
 
-function _scope(auto::Automata, token, depth, intro, index)
+function _scope(auto::Automata, token, index; depth, intro)
 	# @info "scope" token depth intro index
 	node = nothing
 	if token == q"for" # special form
@@ -189,36 +214,44 @@ function _scope(auto::Automata, token, depth, intro, index)
 	elseif token == q"}"
 		@assert depth > 0
 		depth -= 1
+	elseif token == q";"
+		node = token
 	else
 		(peek, ahead) = _required(auto, index)
 		if peek == q":"
 			node = (q":", token)
 			index = ahead
 		else
-			(node, index) = _declare(auto, intro)
+			(node, index) = _declare(auto, intro; depth)
 		end
 	end
-	(node, depth, index)
+	(node, index, depth)
 end
 
-@enum AutomataState TopLevel Scope
-
-function Base.iterate(auto::Automata, stateful=(TopLevel, 0, 1))
-	(state, depth, index) = stateful
+@inline function _iterate_all(auto, index, depth)
 	iter = iterate(auto.lexer, index)
 	!isnothing(iter) || return nothing
 	((token, index), intro) = iter, index
+	_scope(auto, token, index; depth, intro)
+end
 
-	if state == TopLevel || state == Scope
-		node = nothing
-		while ((node, depth, index) = _scope(auto, token, depth, intro, index);
-			isnothing(node))
-			iter = iterate(auto.lexer, index)
-			!isnothing(iter) || return nothing
-			((token, index), intro) = iter, index
-		end
-		(depth => node, (Scope, depth, index))
+@inline function _iterate_none(auto, index, depth)
+	while (iter = _iterate_all(auto, index, depth); !isnothing(iter))
+		(node, index, depth) = iter
+		isnothing(node) || return (node, index, depth)
 	end
+end
+
+function Base.iterate(auto::Automata, state=(1, 0, false))
+	(index, depth, all) = state
+	iter = if all
+		_iterate_all(auto, index, depth)
+	else
+		_iterate_none(auto, index, depth)
+	end
+	!isnothing(iter) || return nothing
+	(node, index, depth) = iter
+	(depth => node, (index, depth, all))
 end
 
 Base.eltype(::Type{Automata}) = Pair{Int, Any}

@@ -51,10 +51,10 @@ end
 		Pair{Int, Any}[0 => (q";",
 			Any["x", "add", "times", 3, 2, :CALL => 2, 1, 2, q"+",
 				:CALL => 2, q"="])]
-	@test Caper.ast("x = fn[3](y) + (fn[1])(x, y);") ==
+	@test Caper.ast("x = func[3](y) + (func[1])(x, y);") ==
 		Pair{Int, Any}[0 => (q";",
-			Any["x", "fn", 3, :INDEX, "y", :CALL => 1,
-				 "fn", 1, :INDEX, "x", "y", :CALL => 2, q"+", q"="])]
+			Any["x", "func", 3, :INDEX, "y", :CALL => 1,
+				 "func", 1, :INDEX, "x", "y", :CALL => 2, q"+", q"="])]
         @test Caper.ast(""" {
         	if (argc < 2) {
         		return 1;
@@ -117,6 +117,33 @@ end
         """) == Pair{Int, Any}[
 	 0 => (q"::", Any["int"], "delta", Any[0])
 	 0 => (q"::", Any["int", q"^"], "ptr", Any["delta", q"^"])
+	]
+
+	@test Caper.ast("""
+	int(int, int) :: add = fn (int :: x; int :: y;) {
+		return x + y;
+	};
+        """) == Pair{Int, Any}[
+	 0 => (q"::", Any["int", "int", "int", :CALL => 2], "add",
+		(q"fn", Any[(q"::", Any["int"], "x", nothing),
+			    (q"::", Any["int"], "y", nothing)],
+			Any[1 => (q"return", Any["x", "y", q"+"])]))
+	]
+
+	@test Caper.ast("""
+	int(int, int) :: max = fn (int :: x; int :: y;) {
+		if (x < y) return y;
+		return x;
+	};
+        """) == Pair{Int, Any}[
+	 0 => (q"::", Any["int", "int", "int", :CALL => 2], "max",
+		(q"fn", Any[(q"::", Any["int"], "x", nothing),
+			    (q"::", Any["int"], "y", nothing)],
+			Any[
+			 1 => (q"if", Any["x", "y", q"<"])
+			 1 => (q"return", Any["y"])
+			 1 => (q"return", Any["x"])
+			]))
 	]
 end
 

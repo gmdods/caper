@@ -20,7 +20,7 @@ _seek(lexer::Lookahead, p, index) = something(_find(lexer, p, index), lexer.leng
 _rfind(lexer::Lookahead, p, index) = findprev(p, lexer.text, index)
 _rseek(lexer::Lookahead, p, index) = something(_rfind(lexer, p, index), 0)
 
-const KeywordString = ["nil", "if", "else", "for", "while", "return", "break", "continue"]
+const KeywordString = ["nil", "fn", "if", "else", "for", "while", "return", "break", "continue"]
 const CmpChar = "<=>"
 const MathChar = "~&|+-*/%"
 const EqualChar = CmpChar * MathChar * '!'
