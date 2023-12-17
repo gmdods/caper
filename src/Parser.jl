@@ -39,8 +39,6 @@ _preceeds(lhs, rhs) = (rhs in Operator1_Pre) ||
 	((lhs in Operator2) && (rhs in Operator2) && Precedence[lhs] <= Precedence[rhs])
 _preceeds(token::Symbol) = Base.Fix1(_preceeds, token)
 
-_isa(T::Type) = Base.Fix2(isa, T)
-
 _guard(f::Function, stack) = !isempty(stack) && f(stack[end])
 
 _ifmove(f::Function, stack, out) =
@@ -52,10 +50,20 @@ Base.:(==)(a::Pair{Symbol, Int}, b::Symbol) = a.first == b
 
 struct Automata
 	lexer::Lookahead
+	file::String
+end
+
+function _error_message(auto::Automata, index, error)
+	lastline = something(findprev(==('\n'), auto.lexer.text, index), 0)
+	column = index - lastline
+	line = 1 + count(==('\n'), view(auto.lexer.text, 1:lastline))
+	endline = something(findnext(==('\n'), auto.lexer.text, index), lastindex(auto.lexer.text))
+	word = view(auto.lexer.text, (1+lastline):endline)
+	"$(auto.file):$line:$column $error\n\t $word"
 end
 
 # https://en.wikipedia.org/wiki/Shunting_yard_algorithm#The_algorithm_in_detail
-function _expression(auto::Automata, index::Int; type=false)
+function _expression(auto::Automata, index::Int)
 	local out = Any[]
 	local stack = Any[]
 
@@ -110,28 +118,33 @@ function _expression(auto::Automata, index::Int; type=false)
 		index = next
 	end
 	while _ifmove(!=(q")"), stack, out); end
-	@assert isempty(stack)
+	@assert isempty(stack) _error_message(auto, index, "malformed expression.")
 	return (out, index)
 end
 
 
 function _required(auto::Automata, index)
 	state = iterate(auto.lexer, index)
-	@assert !isnothing(state)
+	@assert !isnothing(state) _error_message(auto, index, "required token.")
 	state
 end
 
-function _expect(auto::Automata, index, cond::Function)
+function _expect(auto::Automata, index, T::Type)
 	(token, index) = _required(auto, index)
-	@assert cond(token)
+	@assert token isa T _error_message(auto, index, "required token.")
 	(token, index)
 end
 
-_expect(auto::Automata, index, expected::Symbol) = _expect(auto, index, ==(expected))
+function _expect(auto::Automata, index, expected::Symbol)
+	(token, index) = _required(auto, index)
+	@assert token == expected _error_message(auto, index, "expected '$expected'.")
+	(token, index)
+end
 
 function _function(auto::Automata, index; depth)
 	(_, index) = _expect(auto, index, q"(")
 	args = Any[]
+	ahead = index
 	while ((next, ahead) = _required(auto, index); next != q")")
 		(var, index) = _declare(auto, index);
 		push!(args, var)
@@ -158,7 +171,7 @@ function _declare(auto::Automata, index; depth=0)
 		node = (q";", out)
 	elseif token == q":"
 		type = isempty(out) ? nothing : out
-		(token, index) = _expect(auto, index, _isa(AbstractString))
+		(token, index) = _expect(auto, index, AbstractString)
 		(then, index) = _required(auto, index)
 		if then == q"="
 			(keyword, ahead) = _required(auto, index)
@@ -170,12 +183,12 @@ function _declare(auto::Automata, index; depth=0)
 			# @info "decl" index _row(out) _row(type)
 			(_, index) = _expect(auto, index, q";")
 		else
-			@assert then == q";"
+			@assert then == q";" _error_message(auto, index, "expected ';'.")
 			out = nothing
 		end
 		node = (q":", type, token, out)
 	else
-		@assert false
+		@assert false _error_message(auto, index, "expected one of ';:'.")
 	end
 	(node, index)
 end
@@ -206,14 +219,14 @@ function _scope(auto::Automata, token, index; depth, intro)
 		if label == q";"
 			node = (token, :LOOP)
 		else
-			@assert label isa AbstractString
+			@assert label isa AbstractString _error_message(auto, index, "expected a name.")
 			(_, index) = _expect(auto, index, q";")
 			node = (token, label)
 		end
 	elseif token == q"{"
 		depth += 1
 	elseif token == q"}"
-		@assert depth > 0
+		@assert depth > 0 _error_message(auto, index, "too many '}'.")
 		depth -= 1
 	elseif token == q";"
 		node = token
@@ -259,7 +272,7 @@ Base.eltype(::Type{Automata}) = Pair{Int, Any}
 Base.IteratorSize(::Type{Automata}) = Base.SizeUnknown()
 
 """
-	ast(text)
+	ast(text; file)
 
 Reads a text into a datastructure.
 
@@ -277,7 +290,7 @@ julia> Caper.ast("return 1 + h'1f';")
  0 => (:return, Any[1, 0x1f, :+])
 ```
 """
-function ast(text::AbstractString)
-	return collect(Automata(Lookahead(text)))
+function ast(text::AbstractString; file::String="_.ca")
+	return collect(Automata(Lookahead(text), file))
 end
 
