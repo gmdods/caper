@@ -3,20 +3,20 @@
 _tab(io, n) = for _ = 1:n; write(io, '\t') end
 
 _translate_type(io, ty::AbstractString, name::AbstractString) =
-	write(io, ty, ' ', name)
+	write(io, string(ty), ' ', string(name))
 
 function _translate_type(io, types::Vector{Any}, name::AbstractString)
 	size = nothing
 	named = false
 	for ty = types
 		if ty isa AbstractString
-			write(io, ty)
+			write(io, string(ty))
 		elseif ty == q"^"
 			write(io, " *")
 		elseif ty == q"_"
 			size = nothing
 		elseif ty == :INDEX
-			write(io, ' ', name, '[')
+			write(io, ' ', string(name), '[')
 			named = true
 			isnothing(size) || write(io, string(size))
 			write(io, ']')
@@ -27,7 +27,7 @@ function _translate_type(io, types::Vector{Any}, name::AbstractString)
 		end
 	end
 	if !named
-		write(io, ' ', name)
+		write(io, ' ', string(name))
 	end
 end
 
@@ -60,6 +60,8 @@ function _translate_expression(io, expression::Vector{Any})
 			args = join((pop!(stack) for _ = 1:argnum), ", ")
 			name = pop!(stack)
 			push!(stack, string(name, '(', args, ')'))
+		elseif e isa AbstractString && !(e isa Label)
+			push!(stack, string('"', escape_string(e), '"'))
 		else
 			push!(stack, string(e))
 		end
@@ -117,16 +119,22 @@ Translates Caper into C.
 # Examples
 
 ```jldoctest
-julia> using Caper
+using Caper
 
-julia> Caper.gen(\"""
+Caper.gen(\"""
 include C_lib"stdio.h";
 
 int(void) : main = fn () {
-	puts("Hello, world!");
-	return 0;
+\tputs("Hello, world!");
+\treturn 0;
 };
-\""")
+\""") |> print
+# output
+#include <stdio.h>
+int main() {
+\tputs("Hello, world!");
+\treturn 0;
+}
 ```
 """
 function gen(text::AbstractString)

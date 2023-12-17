@@ -29,32 +29,32 @@ end
         @test Caper.lex("2 + 4") == [2, q"+", 4]
         @test Caper.lex("h'ff' & b'10' | b'1100'") == [0xff, q"&", 0b10, q"|", 0b1100]
         @test Caper.lex("z += (x > y) ? x : y") ==
-              ["z", q"+=", q"(", "x", q">", "y", q")", q"?", "x", q":", "y"]
+              [!"z", q"+=", q"(", !"x", q">", !"y", q")", q"?", !"x", q":", !"y"]
 end
 
 
 @testset "Parser" begin
         @test Caper.ast("x = 4; ") ==
-		Pair{Int, Any}[0 => (q";", ["x", 4, q"="])]
+		Pair{Int, Any}[0 => (q";", [!"x", 4, q"="])]
         @test Caper.ast("x = 4 + !y + 1; ") ==
-		Pair{Int, Any}[0 => (q";", ["x", 4, "y", q"!", q"+", 1, q"+", q"="])]
+		Pair{Int, Any}[0 => (q";", [!"x", 4, !"y", q"!", q"+", 1, q"+", q"="])]
         @test Caper.ast("return x % b'1';") ==
-		Pair{Int, Any}[0 => (:return, ["x", 0b01, q"%"])]
+		Pair{Int, Any}[0 => (:return, [!"x", 0b01, q"%"])]
         @test Caper.ast("return (x % b'1') + 1;") ==
-		Pair{Int, Any}[0 => (:return, ["x", 0b01, q"%", 1, q"+"])]
+		Pair{Int, Any}[0 => (:return, [!"x", 0b01, q"%", 1, q"+"])]
 	@test Caper.ast("return 0 + (1 + 2) * 3;") ==
 		Pair{Int, Any}[0 => (:return, [0, 1, 2, q"+", 3, q"*", q"+"])]
         @test Caper.ast("if (x % b'1') { sum += 1; }") ==
-		Pair{Int, Any}[0 => (:if, ["x", 0b01, q"%"]),
-				1 => (q";", ["sum", 1, q"+="])]
+		Pair{Int, Any}[0 => (:if, [!"x", 0b01, q"%"]),
+				1 => (q";", [!"sum", 1, q"+="])]
         @test Caper.ast("x = add(times(3, 2), 1 + 2);") ==
 		Pair{Int, Any}[0 => (q";",
-			Any["x", "add", "times", 3, 2, :CALL => 2, 1, 2, q"+",
+			Any[!"x", !"add", !"times", 3, 2, :CALL => 2, 1, 2, q"+",
 				:CALL => 2, q"="])]
 	@test Caper.ast("x = func[3](y) + (func[1])(x, y);") ==
 		Pair{Int, Any}[0 => (q";",
-			Any["x", "func", 3, :INDEX, "y", :CALL => 1,
-				 "func", 1, :INDEX, "x", "y", :CALL => 2, q"+", q"="])]
+			Any[!"x", !"func", 3, :INDEX, !"y", :CALL => 1,
+				 !"func", 1, :INDEX, !"x", !"y", :CALL => 2, q"+", q"="])]
         @test Caper.ast(""" {
         	if (argc < 2) {
         		return 1;
@@ -62,17 +62,17 @@ end
         	puts(argv[1]);
         }
         """) == Pair{Int, Any}[
-	 1 => (q"if", Any["argc", 2, q"<"]),
+	 1 => (q"if", Any[!"argc", 2, q"<"]),
 	 2 => (q"return", Any[1]),
-	 1 => (q";", Any["puts", "argv", 1, :INDEX, :CALL => 1]),
+	 1 => (q";", Any[!"puts", !"argv", 1, :INDEX, :CALL => 1]),
 	]
         @test Caper.ast("""
 		for (i = 0; i != 10; i += 1) {
 			printf(Fmt"%d", i);
 		}
         """) == Pair{Int, Any}[
-	 0 => (q"for", Any["i", 0, q"="], Any["i", 10, q"!="], Any["i", 1, q"+="])
-	 1 => (q";", Any["printf", "%d", "i", :CALL => 2])
+	 0 => (q"for", Any[!"i", 0, q"="], Any[!"i", 10, q"!="], Any[!"i", 1, q"+="])
+	 1 => (q";", Any[!"printf", "%d", !"i", :CALL => 2])
 	]
         @test Caper.ast("""
 		outer :: for (i = 0; i != 10; i += 1) {
@@ -83,14 +83,14 @@ end
 			}
 		}
         """) == Pair{Int, Any}[
-	 0 => (q"::", "outer")
-	 0 => (q"for", Any["i", 0, q"="], Any["i", 10, q"!="], Any["i", 1, q"+="])
-	 1 => (q"if", Any["i", 1, q"=="])
+	 0 => (q"::", !"outer")
+	 0 => (q"for", Any[!"i", 0, q"="], Any[!"i", 10, q"!="], Any[!"i", 1, q"+="])
+	 1 => (q"if", Any[!"i", 1, q"=="])
 	 1 => (q"continue", :LOOP)
-	 1 => (q"for", Any["j", 0, q"="], Any["j", 10, q"!="], Any["j", 1, q"+="])
-	 2 => (q";", Any["printf", "%d", "i", :CALL => 2])
-	 2 => (q"if", Any["i", 5, q">="])
-	 2 => (q"break", "outer")
+	 1 => (q"for", Any[!"j", 0, q"="], Any[!"j", 10, q"!="], Any[!"j", 1, q"+="])
+	 2 => (q";", Any[!"printf", "%d", !"i", :CALL => 2])
+	 2 => (q"if", Any[!"i", 5, q">="])
+	 2 => (q"break", !"outer")
 	]
 
 	@test Caper.ast("""
@@ -98,25 +98,25 @@ end
 	int^ : ptr = nil;
 	: mask = h"ff";
         """) == Pair{Int, Any}[
-	 0 => (q":", Any["int"], "delta", Any[0])
-	 0 => (q":", Any["int", q"^"], "ptr", Any[q"nil"])
-	 0 => (q":", nothing, "mask", Any[0xff])
+	 0 => (q":", Any[!"int"], !"delta", Any[0])
+	 0 => (q":", Any[!"int", q"^"], !"ptr", Any[q"nil"])
+	 0 => (q":", nothing, !"mask", Any[0xff])
 	]
 
 	@test Caper.ast("""
 	int^[3] : array_of_ptr;
 	int[3]^ : ptr_of_array;
         """) == Pair{Int, Any}[
-	 0 => (q":", Any["int", q"^", 3, :INDEX], "array_of_ptr", nothing)
-	 0 => (q":", Any["int", 3, :INDEX, q"^"], "ptr_of_array", nothing)
+	 0 => (q":", Any[!"int", q"^", 3, :INDEX], !"array_of_ptr", nothing)
+	 0 => (q":", Any[!"int", 3, :INDEX, q"^"], !"ptr_of_array", nothing)
 	]
 
 	@test Caper.ast("""
 	int : delta = 0;
 	int^ : ptr = delta^;
         """) == Pair{Int, Any}[
-	 0 => (q":", Any["int"], "delta", Any[0])
-	 0 => (q":", Any["int", q"^"], "ptr", Any["delta", q"^"])
+	 0 => (q":", Any[!"int"], !"delta", Any[0])
+	 0 => (q":", Any[!"int", q"^"], !"ptr", Any[!"delta", q"^"])
 	]
 
 	@test Caper.ast("""
@@ -124,10 +124,10 @@ end
 		return x + y;
 	};
         """) == Pair{Int, Any}[
-	 0 => (q":", Any["int", "int", "int", :CALL => 2], "add",
-		(q"fn", Any[(q":", Any["int"], "x", nothing),
-			    (q":", Any["int"], "y", nothing)],
-			Pair{Int, Any}[1 => (q"return", Any["x", "y", q"+"])]))
+	 0 => (q":", Any[!"int", !"int", !"int", :CALL => 2], !"add",
+		(q"fn", Any[(q":", Any[!"int"], !"x", nothing),
+			    (q":", Any[!"int"], !"y", nothing)],
+			Pair{Int, Any}[1 => (q"return", Any[!"x", !"y", q"+"])]))
 	]
 
 	@test Caper.ast("""
@@ -136,13 +136,13 @@ end
 		return x;
 	};
         """) == Pair{Int, Any}[
-	 0 => (q":", Any["int", "int", "int", :CALL => 2], "max",
-		(q"fn", Any[(q":", Any["int"], "x", nothing),
-			    (q":", Any["int"], "y", nothing)],
+	 0 => (q":", Any[!"int", !"int", !"int", :CALL => 2], !"max",
+		(q"fn", Any[(q":", Any[!"int"], !"x", nothing),
+			    (q":", Any[!"int"], !"y", nothing)],
 			Pair{Int, Any}[
-			 1 => (q"if", Any["x", "y", q"<"])
-			 1 => (q"return", Any["y"])
-			 1 => (q"return", Any["x"])
+			 1 => (q"if", Any[!"x", !"y", q"<"])
+			 1 => (q"return", Any[!"y"])
+			 1 => (q"return", Any[!"x"])
 			]))
 	]
 end
@@ -155,28 +155,28 @@ end
 	    }
 	};
 	""") == Pair{Int, Any}[
-	 0 => (q":", Any["void", "byte", q"_", :INDEX, "byte", q"_", :INDEX, "size_t", :CALL => 3],
-		"memcpy",
-		(:fn, Any[(q":", nothing, "src", nothing),
-			(q":", nothing, "dst", nothing),
-			(q":", nothing, "nbytes", nothing)],
+	 0 => (q":", Any[!"void", !"byte", q"_", :INDEX, !"byte", q"_", :INDEX, !"size_t", :CALL => 3],
+		!"memcpy",
+		(:fn, Any[(q":", nothing, !"src", nothing),
+			(q":", nothing, !"dst", nothing),
+			(q":", nothing, !"nbytes", nothing)],
 			Pair{Int, Any}[
-			 1 => (q"for", Any[], Any["nbytes", 0, q">"], Any["nbytes", 1, q"-="]),
-			 2 => (q";", Any["dst", "nbytes", :INDEX, "src", "nbytes", :INDEX, q"="])
+			 1 => (q"for", Any[], Any[!"nbytes", 0, q">"], Any[!"nbytes", 1, q"-="]),
+			 2 => (q";", Any[!"dst", !"nbytes", :INDEX, !"src", !"nbytes", :INDEX, q"="])
 			]))
 	]
 
 	file = read("test/echo.ca", String)
 	@test Caper.ast(file) == Pair{Int, Any}[
 	 0 => (q"include", "<stdio.h>")
-	 0 => (q":", Any["int", "int", "char", q"^", q"_", :INDEX, :CALL => 2],
-		"main",
-		(q"fn", Any[(q":", Any["int"], "argc", nothing),
-			    (q":", Any["char", q"^", q"_", :INDEX], "argv", nothing)],
+	 0 => (q":", Any[!"int", !"int", !"char", q"^", q"_", :INDEX, :CALL => 2],
+		!"main",
+		(q"fn", Any[(q":", Any[!"int"], !"argc", nothing),
+			    (q":", Any[!"char", q"^", q"_", :INDEX], !"argv", nothing)],
 			Pair{Int, Any}[
-			 1 => (q"if", Any["argc", 2, q"<"]),
+			 1 => (q"if", Any[!"argc", 2, q"<"]),
 			 2 => (q"return", Any[1]),
-			 1 => (q";", Any["puts", "argv", 1, :INDEX, :CALL => 1]),
+			 1 => (q";", Any[!"puts", !"argv", 1, :INDEX, :CALL => 1]),
 			 1 => (q"return", Any[0])
 			]))
 	]

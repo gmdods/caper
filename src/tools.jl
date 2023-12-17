@@ -16,6 +16,17 @@ Base.parse(::Type{Char}, s::AbstractString) = convert(Char, tryparse(Char, s))
 Base.:|(fn::Vararg{<:Function,N}) where {N} = x -> mapreduce(f -> f(x), |, fn)
 Base.:&(fn::Vararg{<:Function,N}) where {N} = x -> mapreduce(f -> f(x), &, fn)
 
+struct Label <: AbstractString
+	label::String
+end
+
+Base.string(label::Label) = label.label
+Base.:(!)(str) = Label(str)
+
+Base.show(io::IO, label::Label) = (print(io, "!"); show(io, label.label))
+Base.show(io::IO, ::MIME"text/plain", label::Label) = show(io, label)
+Base.display(label::Label) = show(stdout, label)
+
 """
 	@q_str -> Symbol
 

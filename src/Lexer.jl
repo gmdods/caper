@@ -41,7 +41,7 @@ function _quoted(lexer::Lookahead, s::Int)
 	(r, t + 1)
 end
 
-_reserved(word::AbstractString) = (word in KeywordString) ? Symbol(word) : word
+_reserved(word::AbstractString) = (word in KeywordString) ? Symbol(word) : Label(word)
 
 function Base.iterate(lexer::Lookahead, index=1)
         local i = _find(lexer, !isspace, index)
@@ -98,7 +98,7 @@ julia> Caper.lex("1 + h'1f'")
 
 julia> Caper.lex("x |= h'1f'")
 3-element Vector{Any}:
-     "x"
+     !"x"
      :|=
  0x1f
 ```
