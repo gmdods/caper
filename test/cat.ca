@@ -1,0 +1,23 @@
+// Cat
+include C_lib"stdio.h";
+include C_lib"stdlib.h";
+
+int(int, char^[_]) : main = fn (int : argc; char^[_] : argv;) {
+	if (argc < 2) { // print error
+		return 1;
+	}
+	FILE^ : f = fopen(argv[1], "r");
+	char[4096] : buffer;
+	size_t : nbytes = 0;
+
+	while (4096 == (nbytes = fread(buffer, 1, 4096, f))) {
+		fwrite(buffer, 1, 4096, stdout);
+	}
+	if (ferror(f))
+		return 1;
+	if ((nbytes > 0) & feof(f))
+		fwrite(buffer, 1, nbytes, stdout);
+
+	fclose(f);
+	return 0;
+};

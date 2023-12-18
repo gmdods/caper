@@ -57,7 +57,8 @@ function _translate_expression(io, expression::Vector{Any})
 		elseif e isa Pair
 			@assert e[1] == :CALL "Expected CALL, got $(e[1])"
 			argnum = e[2]
-			args = join((pop!(stack) for _ = 1:argnum), ", ")
+			arglist = reverse!([pop!(stack) for _ = 1:argnum])
+			args = join(arglist, ", ")
 			name = pop!(stack)
 			push!(stack, string(name, '(', args, ')'))
 		elseif e isa AbstractString && !(e isa Label)
@@ -71,14 +72,23 @@ function _translate_expression(io, expression::Vector{Any})
 end
 
 function _translate_scope(io, scope::Vector{Pair{Int, Any}}; level=0)
+	indent = false
 	for item = scope
 		(depth, node) = item
+		depth += (ind = indent; indent = false; ind & (depth == level))
 		depth < level && (_tab(io, depth); write(io, "}\n"))
 		_tab(io, depth)
-		if node[1] == q"if"
-			write(io, "if (")
+		if node[1] in Statements
+			write(io, string(node[1]), " (")
 			_translate_expression(io, node[2])
+			if node[1] == q"for" # special form
+				write(io, ";")
+				_translate_expression(io, node[3])
+				write(io, ";")
+				_translate_expression(io, node[4])
+			end
 			write(io, ") {\n")
+			indent = true
 		elseif node[1] == q"return"
 			write(io, "return ")
 			_translate_expression(io, node[2])
@@ -86,8 +96,17 @@ function _translate_scope(io, scope::Vector{Pair{Int, Any}}; level=0)
 		elseif node[1] == q";"
 			_translate_expression(io, node[2])
 			write(io, ";\n")
+		elseif node[1] == q":"
+			_translate_type(io, node[2], node[3])
+			if !isnothing(node[4])
+				write(io, " = (")
+				_translate_expression(io, node[4])
+				write(io, ");\n")
+			else
+				write(io, ";\n")
+			end
 		else
-			@assert false "Not implemented"
+			@assert false "Not implemented $node"
 		end
 		level = depth
 	end

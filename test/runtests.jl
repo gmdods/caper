@@ -183,8 +183,10 @@ end
 end
 
 @testset "Codegen" begin
-	file = read("test/echo.ca", String)
-	file_c = read("test/echo.c", String)
-	@test Caper.gen(file) == file_c
+	for f = ["echo", "cat"]
+		file = read("test/$f.ca", String)
+		file_c = read("test/$f.c", String)
+		@test Caper.gen(file) == file_c
+	end
 end
 
