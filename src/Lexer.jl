@@ -12,7 +12,8 @@ end
 
 _emit(lexer::Lookahead, index::Int) = lexer.text[index]
 _emit(lexer::Lookahead, index) = view(lexer.text, index)
-_checkemit(lexer::Lookahead, index) = (index <= lexer.length) ? _emit(lexer, index) : nothing
+_checkemit(lexer::Lookahead, index::Int) = (index <= lexer.length) ? _emit(lexer, index) : nothing
+_checkemit(lexer::Lookahead, index) = checkbounds(Bool, lexer.text, index) ? _emit(lexer, index) : nothing
 
 _find(lexer::Lookahead, p, index) = findnext(p, lexer.text, index)
 _seek(lexer::Lookahead, p, index) = something(_find(lexer, p, index), lexer.length + 1)
@@ -31,6 +32,7 @@ const MathChar = "~&|+-*/%"
 const EqualChar = CmpChar * MathChar * '!'
 const SpecialChar = "\"'[]{}()@#!?^,.:;" * EqualChar
 const Quoted = "\'\""
+const Comment = "//"
 
 function _quoted(lexer::Lookahead, s::Int)
 	c = _checkemit(lexer, s)
@@ -44,10 +46,15 @@ end
 _reserved(word::AbstractString) = (word in KeywordString) ? Symbol(word) : Label(word)
 
 function Base.iterate(lexer::Lookahead, index=1)
-        local i = _find(lexer, !isspace, index)
-        !isnothing(i) || return nothing
+        index = _find(lexer, !isspace, index)
+        !isnothing(index) || return nothing
+	while _checkemit(lexer, index:index+1) == Comment
+		index = _find(lexer, ==('\n'), index)
+		index = _find(lexer, !isspace, index)
+		!isnothing(index) || return nothing
+	end
 
-        local s = _find(lexer, isdigit | isname | in(SpecialChar), i)
+        local s = _find(lexer, isdigit | isname | in(SpecialChar), index)
         !isnothing(s) || return nothing
 
         local c = _emit(lexer, s)
