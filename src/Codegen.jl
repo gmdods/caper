@@ -40,13 +40,13 @@ function _translate_expression(io, expression::Vector{Any})
 				rhs = pop!(stack)
 				lhs = pop!(stack)
 				bin = (e == q"~") ? q"^" : e
-				push!(stack, string('(', lhs, ')', bin, '(', rhs, ')'))
+				push!(stack, string('(', lhs, ' ', bin, ' ', rhs, ')'))
 			elseif e in Operator1_Pre
 				arg = pop!(stack)
-				push!(stack, string("!(", arg, ')'))
+				push!(stack, string("(!", arg, ')'))
 			elseif e == q"^"
 				arg = pop!(stack)
-				push!(stack, string("*(", arg, ')'))
+				push!(stack, string("(*", arg, ')'))
 			elseif e == :INDEX
 				arg = pop!(stack)
 				name = pop!(stack)
