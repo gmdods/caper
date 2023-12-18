@@ -7,7 +7,7 @@ int(int, char^[_]) : main = fn (int : argc; char^[_] : argv;) {
 		return 1;
 	}
 	FILE^ : f = fopen(argv[1], "r");
-	char[4096] : buffer;
+	char[4096] : buffer = @{};
 	size_t : nbytes = 0;
 
 	while (4096 == (nbytes = fread(buffer, 1, 4096, f))) {

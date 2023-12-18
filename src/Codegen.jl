@@ -55,17 +55,25 @@ function _translate_expression(io, expression::Vector{Any})
 				@assert false "Not implemented $e"
 			end
 		elseif e isa Pair
-			@assert e[1] == :CALL "Expected CALL, got $(e[1])"
 			argnum = e[2]
 			arglist = reverse!([pop!(stack) for _ = 1:argnum])
 			args = join(arglist, ", ")
-			name = pop!(stack)
-			push!(stack, string(name, '(', args, ')'))
+			if e[1] == :CALL
+				name = pop!(stack)
+				push!(stack, string(name, '(', args, ')'))
+			elseif e[1] == :RECORD
+				args = isempty(args) ? "0" : args
+				push!(stack, string('{', args, '}'))
+
+			else
+				@assert false "Expected CALL or RECORD, got $(e[1])"
+			end
 		elseif e isa AbstractString && !(e isa Label)
 			push!(stack, string('"', escape_string(e), '"'))
 		else
 			push!(stack, string(e))
 		end
+		# @info "translate" _row(stack)
 	end
 	@assert length(stack) == 1 "Constructed $stack"
 	write(io, pop!(stack))
@@ -99,12 +107,10 @@ function _translate_scope(io, scope::Vector{Pair{Int, Any}}; level=0)
 		elseif node[1] == q":"
 			_translate_type(io, node[2], node[3])
 			if !isnothing(node[4])
-				write(io, " = (")
+				write(io, " = ")
 				_translate_expression(io, node[4])
-				write(io, ");\n")
-			else
-				write(io, ";\n")
 			end
+			write(io, ";\n")
 		else
 			@assert false "Not implemented $node"
 		end
