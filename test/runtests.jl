@@ -104,11 +104,11 @@ end
 	]
 
 	@test Caper.ast("""
-	int^[3] : array_of_ptr;
-	int[3]^ : ptr_of_array;
+	int^[3] : array_of_ptr = @{};
+	int[3]^ : ptr_of_array = @{1, 2, 3}^;
         """) == Pair{Int, Any}[
-	 0 => (q":", Any[!"int", q"^", 3, :INDEX], !"array_of_ptr", nothing)
-	 0 => (q":", Any[!"int", 3, :INDEX, q"^"], !"ptr_of_array", nothing)
+	 0 => (q":", Any[!"int", q"^", 3, :INDEX], !"array_of_ptr", Any[:RECORD => 0])
+	 0 => (q":", Any[!"int", 3, :INDEX, q"^"], !"ptr_of_array", Any[1, 2, 3, :RECORD => 3, q"^"])
 	]
 
 	@test Caper.ast("""

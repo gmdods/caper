@@ -31,6 +31,7 @@ const CmpChar = "<=>"
 const MathChar = "~&|+-*/%"
 const EqualChar = CmpChar * MathChar * '!'
 const SpecialChar = "\"'[]{}()@#!?^,.:;" * EqualChar
+const Sigils = "@"
 const Quoted = "\'\""
 const Comment = "//"
 
@@ -74,6 +75,9 @@ function Base.iterate(lexer::Lookahead, index=1)
 		_quoted(lexer, s)
         elseif c in EqualChar && _checkemit(lexer, s + 1) == '='
                 r = Symbol(c * '=')
+                (r, s + 2)
+        elseif c in Sigils && _checkemit(lexer, s + 1) == '{'
+                r = Symbol(c * '{')
                 (r, s + 2)
         elseif c == ':' && _checkemit(lexer, s + 1) == ':'
                 r = q"::"

@@ -13,6 +13,7 @@ const Operator2 = Symbol.([
 
 const OpenBraces = Symbol.(collect("([{"))
 const CloseBraces = Symbol.(collect(")]}"))
+const CSVs = Symbol.(['('; collect(Sigils) .* '{'])
 
 const Keywords = Symbol.(KeywordString)
 const Statements = [q"if", q"while", q"for"]
@@ -45,6 +46,12 @@ _ifmove(f::Function, stack, out) =
 	_guard(f, stack) && (push!(out, pop!(stack)); true)
 
 _row(a) = permutedims(copy(a))
+
+issigil(c::Symbol) = endswith(string(c), '{')
+issigil(c::Pair{Symbol, Int}) = issigil(c.first)
+issigil(c) = false
+
+const opening = issigil | ==(q"(")
 
 Base.:(==)(a::Pair{Symbol, Int}, b::Symbol) = a.first == b
 
@@ -91,21 +98,31 @@ function _expression(auto::Automata, index::Int)
 				push!(stack, token => 0)
 			end
 		elseif token == q")"
+			nonvoid = q"(" != intro
 			while _ifmove(!=(q"("), stack, out); end
 			isempty(stack) && break
 			sentinel = pop!(stack)
 			if sentinel isa Pair
-				push!(out, :CALL => sentinel.second + 1)
+				push!(out, :CALL => sentinel.second + nonvoid)
 			end
+		elseif issigil(token)
+			push!(stack, token => 0)
+		elseif token == q"}"
+			nonvoid = !issigil(intro)
+			while _ifmove(!issigil, stack, out); end
+			isempty(stack) && break
+			sentinel = pop!(stack)
+			@assert sentinel isa Pair
+			push!(out, :RECORD => sentinel.second + nonvoid)
 		elseif token == q","
-			while _ifmove(!=(q"("), stack, out); end
+			while _ifmove(!opening, stack, out); end
 			isempty(stack) && break
 			if stack[end] isa Pair
 				n = stack[end].second
-				stack[end] = q"(" => n + 1
+				stack[end] = stack[end].first => n + 1
 			end
 		elseif token in Operator2
-			while _ifmove(!=(q"(") & _preceeds(token), stack, out); end
+			while _ifmove(!opening & _preceeds(token), stack, out); end
 			push!(stack, token)
 		elseif token in Operator1_Pre
 			push!(stack, token)
