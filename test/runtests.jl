@@ -120,7 +120,7 @@ end
 	]
 
 	@test Caper.ast("""
-	int(int, int) : add = fn (int : x; int : y;) {
+	int(int, int) : add = fn (int : x, int : y) {
 		return x + y;
 	};
         """) == Pair{Int, Any}[
@@ -131,7 +131,7 @@ end
 	]
 
 	@test Caper.ast("""
-	int(int, int) : max = fn (int : x; int : y;) {
+	int(int, int) : max = fn (int : x, int : y) {
 		if (x < y) return y;
 		return x;
 	};
@@ -149,7 +149,7 @@ end
 
 @testset "Files" begin
 	@test Caper.ast("""
-	void(byte[_], byte[_], size_t) : memcpy = fn (: src; : dst; : nbytes;) {
+	void(byte[_], byte[_], size_t) : memcpy = fn (:src, :dst, :nbytes) {
 	    for (; nbytes > 0; nbytes -= 1) {
 		dst[nbytes] = src[nbytes];
 	    }

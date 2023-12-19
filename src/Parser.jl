@@ -160,15 +160,24 @@ function _expect(auto::Automata, index, expected::Symbol)
 	(token, index)
 end
 
+function _expect(auto::Automata, index, expected::Vector{Symbol})
+	(token, index) = _required(auto, index)
+	@assert token in expected _error_message(auto, index,
+		"expected one of `$(join(string.(expected)))` and got `$token`.")
+	(token, index)
+end
+
 function _function(auto::Automata, index; depth)
 	(_, index) = _expect(auto, index, q"(")
 	args = Any[]
-	ahead = index
-	while ((next, ahead) = _required(auto, index); next != q")")
-		(var, index) = _declare(auto, index);
+	(next, ahead) = _required(auto, index)
+	next == q")" && (index = ahead) # void function
+	while next != q")"
+		(var, index) = _declare(auto, index)
 		push!(args, var)
+		# @info "var" index var
+		(next, index) = _expect(auto, index, [q",", q")"])
 	end
-	index = ahead
 
 	defn = Pair{Int, Any}[]
 	state = (index, depth, true)
@@ -185,14 +194,16 @@ end
 
 function _declare(auto::Automata, index; depth=0)
 	(out, index) = _expression(auto, index)
-	(token, index) = _required(auto, index)
+	(token, ahead) = _expect(auto, index, [q";", q":"])
 	if token == q";"
 		node = (q";", out)
 	elseif token == q":"
+		index = ahead
 		type = isempty(out) ? nothing : out
 		(token, index) = _expect(auto, index, Label)
-		(then, index) = _required(auto, index)
+		(then, ahead) = _required(auto, index)
 		if then == q"="
+			index = ahead
 			(keyword, ahead) = _required(auto, index)
 			if keyword == q"fn" # special form
 				(out, index) = _function(auto, ahead; depth)
@@ -200,14 +211,10 @@ function _declare(auto::Automata, index; depth=0)
 				(out, index) = _expression(auto, index)
 			end
 			# @info "decl" index _row(out) _row(type)
-			(_, index) = _expect(auto, index, q";")
 		else
-			@assert then == q";" _error_message(auto, index, "expected `;`.")
 			out = nothing
 		end
 		node = (q":", type, token, out)
-	else
-		@assert false _error_message(auto, index, "expected one of `;:`.")
 	end
 	(node, index)
 end
@@ -260,6 +267,7 @@ function _scope(auto::Automata, token, index; depth, intro)
 			index = ahead
 		else
 			(node, index) = _declare(auto, intro; depth)
+			(_, index) = _expect(auto, index, q";")
 		end
 	end
 	(node, index, depth)

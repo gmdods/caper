@@ -1,7 +1,7 @@
 // Echo
 include C_lib"stdio.h";
 
-int(int, char^[_]) : main = fn (int : argc; char^[_] : argv;) {
+int(int, char^[_]) : main = fn (int : argc, char^[_] : argv) {
 	if (argc < 2) { // print error
 		return 1;
 	}
