@@ -2,14 +2,14 @@
 
 _tab(io, n) = for _ = 1:n; write(io, '\t') end
 
-_translate_type(io, ty::AbstractString, name::AbstractString) =
+_translate_type(io, ty::Label, name::Label) =
 	write(io, string(ty), ' ', string(name))
 
-function _translate_type(io, types::Vector{Any}, name::AbstractString)
+function _translate_type(io, types::Vector{Any}, name::Label)
 	size = nothing
 	named = false
 	for ty = types
-		if ty isa AbstractString
+		if ty isa Label
 			write(io, string(ty))
 		elseif ty == q"^"
 			write(io, " *")
@@ -68,7 +68,7 @@ function _translate_expression(io, expression::Vector{Any})
 			else
 				@assert false "Expected CALL or RECORD, got $(e[1])"
 			end
-		elseif e isa AbstractString && !(e isa Label)
+		elseif e isa AbstractString
 			push!(stack, string('"', escape_string(e), '"'))
 		else
 			push!(stack, string(e))

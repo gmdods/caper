@@ -190,7 +190,7 @@ function _declare(auto::Automata, index; depth=0)
 		node = (q";", out)
 	elseif token == q":"
 		type = isempty(out) ? nothing : out
-		(token, index) = _expect(auto, index, AbstractString)
+		(token, index) = _expect(auto, index, Label)
 		(then, index) = _required(auto, index)
 		if then == q"="
 			(keyword, ahead) = _required(auto, index)
@@ -242,7 +242,7 @@ function _scope(auto::Automata, token, index; depth, intro)
 		if label == q";"
 			node = (token, :LOOP)
 		else
-			@assert label isa AbstractString _error_message(auto, index, "expected a name.")
+			@assert label isa Label _error_message(auto, index, "expected a name.")
 			(_, index) = _expect(auto, index, q";")
 			node = (token, label)
 		end
