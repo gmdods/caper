@@ -80,13 +80,15 @@ function _translate_expression(io, expression::Vector{Any})
 end
 
 function _translate_scope(io, scope::Vector{Pair{Int, Any}}; level=0)
-	indent = false
 	for item = scope
 		(depth, node) = item
-		depth += (ind = indent; indent = false; ind & (depth == level))
-		depth < level && (_tab(io, depth); write(io, "}\n"))
+		# @info "scope" node depth level
+		if level > depth
+			_tab(io, depth)
+			write(io, "}\n")
+		end
 		_tab(io, depth)
-		if node[1] in Statements
+		if node[1] in Conditionals
 			write(io, string(node[1]), " (")
 			_translate_expression(io, node[2])
 			if node[1] == q"for" # special form
@@ -96,6 +98,11 @@ function _translate_scope(io, scope::Vector{Pair{Int, Any}}; level=0)
 				_translate_expression(io, node[4])
 			end
 			write(io, ") {\n")
+			indent = true
+		elseif node[1] == q"defer" # special form
+			@assert false "Not implemented $node"
+		elseif node[1] in Statements
+			write(io, string(node[1]), " {\n")
 			indent = true
 		elseif node[1] == q"return"
 			write(io, "return ")
@@ -116,7 +123,6 @@ function _translate_scope(io, scope::Vector{Pair{Int, Any}}; level=0)
 		end
 		level = depth
 	end
-
 end
 
 function _translate_function(io, func_node)

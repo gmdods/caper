@@ -16,7 +16,8 @@ const CloseBraces = Symbol.(collect(")]}"))
 const CSVs = Symbol.(['('; collect(Sigils) .* '{'])
 
 const Keywords = Symbol.(KeywordString)
-const Statements = [q"if", q"while", q"for"]
+const Conditionals = [q"if", q"while", q"for"]
+const Statements = [q"else", q"defer"]
 const Labels = [q"break", q"continue", q"goto"] # gasp!
 
 const Precedence = Dict{Symbol, Int}(
@@ -141,7 +142,6 @@ function _expression(auto::Automata, index::Int)
 	return (out, index)
 end
 
-
 function _required(auto::Automata, index)
 	state = iterate(auto.lexer, index)
 	@assert !isnothing(state) _error_message(auto, index, "required token.")
@@ -180,16 +180,15 @@ function _function(auto::Automata, index; depth)
 	end
 
 	defn = Pair{Int, Any}[]
-	state = (index, depth, true)
-	while (iter = iterate(auto, state); !isnothing(iter))
+	state = (index, depth, 0)
+	while (iter = _iterate(auto, state); !isnothing(iter))
 		(link, state) = iter
 		# @info "fn" iter defn
 		link == (depth => nothing) && break
 		!isnothing(link.second) && push!(defn, link)
 	end
-	(index, _, _) = state
 	node = (q"fn", args, defn)
-	(node, index)
+	(node, state[1])
 end
 
 function _declare(auto::Automata, index; depth=0)
@@ -219,9 +218,18 @@ function _declare(auto::Automata, index; depth=0)
 	(node, index)
 end
 
-function _scope(auto::Automata, token, index; depth, intro)
-	# @info "scope" token depth intro index
+function _indent(auto::Automata, index)
+	(token, _) = _required(auto, index)
+	token != q"{"
+end
+
+function _scope(auto::Automata, token, state; intro)
+	(index, depth, indent) = state
+	# @info "scope" token depth index indent intro
 	node = nothing
+	nest = depth
+	nest += indent
+	level = indent - (indent > 0)
 	if token == q"for" # special form
 		(_, index) = _expect(auto, index, q"(")
 		(pre, index) = _expression(auto, index)
@@ -231,11 +239,17 @@ function _scope(auto::Automata, token, index; depth, intro)
 		(post, index) = _expression(auto, index)
 		(_, index) = _expect(auto, index, q")")
 		node = (token, pre, cond, post)
-	elseif token in Statements
+		level = indent + _indent(auto, index)
+	elseif token in Conditionals
 		(_, index) = _expect(auto, index, q"(")
 		(out, index) = _expression(auto, index)
 		(_, index) = _expect(auto, index, q")")
 		node = (token, out)
+
+		level = indent + _indent(auto, index)
+	elseif token in Statements
+		node = (token,)
+		level = indent + _indent(auto, index)
 	elseif token == q"return"
 		(out, index) = _expression(auto, index)
 		(_, index) = _expect(auto, index, q";")
@@ -255,9 +269,12 @@ function _scope(auto::Automata, token, index; depth, intro)
 		end
 	elseif token == q"{"
 		depth += 1
+		nest = depth
 	elseif token == q"}"
 		@assert depth > 0 _error_message(auto, index, "too many '}'.")
 		depth -= 1
+		indent -= (indent > 0)
+		nest = depth
 	elseif token == q";"
 		node = token
 	else
@@ -270,33 +287,25 @@ function _scope(auto::Automata, token, index; depth, intro)
 			(_, index) = _expect(auto, index, q";")
 		end
 	end
-	(node, index, depth)
+	indent = level
+	state = (index, depth, indent)
+	(nest => node, state)
 end
 
-@inline function _iterate_all(auto, index, depth)
-	iter = iterate(auto.lexer, index)
+@inline function _iterate(auto, state)
+	iter = iterate(auto.lexer, state[1])
 	!isnothing(iter) || return nothing
-	((token, index), intro) = iter, index
-	_scope(auto, token, index; depth, intro)
+	((token, index), intro) = iter, state[1]
+	state = (index, state[2:end]...)
+	_scope(auto, token, state; intro)
 end
 
-@inline function _iterate_none(auto, index, depth)
-	while (iter = _iterate_all(auto, index, depth); !isnothing(iter))
-		(node, index, depth) = iter
-		isnothing(node) || return (node, index, depth)
+# state = (index, depth, indent)
+function Base.iterate(auto::Automata, state=(1, 0, 0))
+	while (iter = _iterate(auto, state); !isnothing(iter))
+		(arrow, state) = iter
+		isnothing(arrow.second) || return iter
 	end
-end
-
-function Base.iterate(auto::Automata, state=(1, 0, false))
-	(index, depth, all) = state
-	iter = if all
-		_iterate_all(auto, index, depth)
-	else
-		_iterate_none(auto, index, depth)
-	end
-	!isnothing(iter) || return nothing
-	(node, index, depth) = iter
-	(depth => node, (index, depth, all))
 end
 
 Base.eltype(::Type{Automata}) = Pair{Int, Any}

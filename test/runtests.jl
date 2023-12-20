@@ -86,11 +86,11 @@ end
 	 0 => (q"::", !"outer")
 	 0 => (q"for", Any[!"i", 0, q"="], Any[!"i", 10, q"!="], Any[!"i", 1, q"+="])
 	 1 => (q"if", Any[!"i", 1, q"=="])
-	 1 => (q"continue", :LOOP)
+	 2 => (q"continue", :LOOP)
 	 1 => (q"for", Any[!"j", 0, q"="], Any[!"j", 10, q"!="], Any[!"j", 1, q"+="])
 	 2 => (q";", Any[!"printf", "%d", !"i", :CALL => 2])
 	 2 => (q"if", Any[!"i", 5, q">="])
-	 2 => (q"break", !"outer")
+	 3 => (q"break", !"outer")
 	]
 
 	@test Caper.ast("""
@@ -141,10 +141,29 @@ end
 			    (q":", Any[!"int"], !"y", nothing)],
 			Pair{Int, Any}[
 			 1 => (q"if", Any[!"x", !"y", q"<"])
-			 1 => (q"return", Any[!"y"])
+			 2 => (q"return", Any[!"y"])
 			 1 => (q"return", Any[!"x"])
 			]))
 	]
+
+	@test Caper.ast("""
+	: max = fn () {
+		if (x < y) { if (y == 0) { return 0; } else { return y; } }
+		else  return x;
+	};
+	""") == Caper.ast("""
+	: max = fn () {
+		if (x < y) { if (y == 0)  return 0;  else return y; }
+		else  return x;
+	};
+	""")
+	# TODO: Decide
+	# == Caper.ast("""
+	# : max = fn () {
+	#  	if (x < y) if (y == 0)  return 0;  else return y;
+	# 	else  return x;
+	# };
+        # """)
 end
 
 @testset "Files" begin
