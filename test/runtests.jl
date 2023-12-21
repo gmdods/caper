@@ -94,51 +94,55 @@ end
 	]
 
 	@test Caper.ast("""
-	int : delta = 0;
-	int^ : ptr = nil;
-	: mask = h"ff";
+	delta: int{0};
+	ptr: int^{nil};
+	array: int[3]{1, 2, 3};
+	mask: _{h"ff"};
         """) == Pair{Int, Any}[
-	 0 => (q":", Any[!"int"], !"delta", Any[0])
-	 0 => (q":", Any[!"int", q"^"], !"ptr", Any[q"nil"])
-	 0 => (q":", nothing, !"mask", Any[0xff])
+	 0 => (q":", !"delta", Any[!"int"], Any[0, :RECORD => 1])
+	 0 => (q":", !"ptr", Any[!"int", q"^"], Any[q"nil", :RECORD => 1])
+	 0 => (q":", !"array", Any[!"int", 3, :INDEX], Any[1, 2, 3, :RECORD => 3])
+	 0 => (q":", !"mask", Any[q"_"], Any[0xff, :RECORD => 1])
 	]
 
 	@test Caper.ast("""
-	int^[3] : array_of_ptr = @{};
-	int[3]^ : ptr_of_array = @{1, 2, 3}^;
+	array_of_ptr: int^[3]{};
+	ptr_of_array: int[3]^{@{1, 2, 3}^};
         """) == Pair{Int, Any}[
-	 0 => (q":", Any[!"int", q"^", 3, :INDEX], !"array_of_ptr", Any[:RECORD => 0])
-	 0 => (q":", Any[!"int", 3, :INDEX, q"^"], !"ptr_of_array", Any[1, 2, 3, :RECORD => 3, q"^"])
+	 0 => (q":", !"array_of_ptr", Any[!"int", q"^", 3, :INDEX], Any[:RECORD => 0])
+	 0 => (q":", !"ptr_of_array", Any[!"int", 3, :INDEX, q"^"], Any[1, 2, 3, :RECORD => 3, q"^", :RECORD => 1])
 	]
 
 	@test Caper.ast("""
-	int : delta = 0;
-	int^ : ptr = delta^;
+	delta: int{0};
+	ptr: int^{delta^};
         """) == Pair{Int, Any}[
-	 0 => (q":", Any[!"int"], !"delta", Any[0])
-	 0 => (q":", Any[!"int", q"^"], !"ptr", Any[!"delta", q"^"])
+	 0 => (q":", !"delta", Any[!"int"], Any[0, :RECORD => 1])
+	 0 => (q":", !"ptr", Any[!"int", q"^"], Any[!"delta", q"^", :RECORD => 1])
 	]
 
 	@test Caper.ast("""
-	int(int, int) : add = fn (int : x, int : y) {
+	add: fn (x: int, y: int): int {
 		return x + y;
 	};
         """) == Pair{Int, Any}[
-	 0 => (q":", Any[!"int", !"int", !"int", :CALL => 2], !"add",
-		(q"fn", Any[(q":", Any[!"int"], !"x", nothing),
-			    (q":", Any[!"int"], !"y", nothing)],
+	 0 => (q":", !"add", nothing,
+		(q"fn", Any[(q":", !"x", Any[!"int"], nothing),
+			    (q":", !"y", Any[!"int"], nothing)],
+			Any[!"int"],
 			Pair{Int, Any}[1 => (q"return", Any[!"x", !"y", q"+"])]))
 	]
 
 	@test Caper.ast("""
-	int(int, int) : max = fn (int : x, int : y) {
+	max: fn (x: int, y: int): int {
 		if (x < y) return y;
 		return x;
 	};
         """) == Pair{Int, Any}[
-	 0 => (q":", Any[!"int", !"int", !"int", :CALL => 2], !"max",
-		(q"fn", Any[(q":", Any[!"int"], !"x", nothing),
-			    (q":", Any[!"int"], !"y", nothing)],
+	 0 => (q":", !"max", nothing,
+		(q"fn", Any[(q":", !"x", Any[!"int"], nothing),
+			    (q":", !"y", Any[!"int"], nothing)],
+			Any[!"int"],
 			Pair{Int, Any}[
 			 1 => (q"if", Any[!"x", !"y", q"<"])
 			 2 => (q"return", Any[!"y"])
@@ -147,19 +151,19 @@ end
 	]
 
 	@test Caper.ast("""
-	: max = fn () {
+	max: fn (): void {
 		if (x < y) { if (y == 0) { return 0; } else { return y; } }
 		else  return x;
 	};
 	""") == Caper.ast("""
-	: max = fn () {
+	max: fn (): void {
 		if (x < y) { if (y == 0)  return 0;  else return y; }
 		else  return x;
 	};
 	""")
 	# TODO: Decide
 	# == Caper.ast("""
-	# : max = fn () {
+	# max: fn (): void {
 	#  	if (x < y) if (y == 0)  return 0;  else return y;
 	# 	else  return x;
 	# };
@@ -168,17 +172,18 @@ end
 
 @testset "Files" begin
 	@test Caper.ast("""
-	void(byte[_], byte[_], size_t) : memcpy = fn (:src, :dst, :nbytes) {
+	memcpy: fn (src: byte[_], dst: byte[_], nbytes: size_t): void {
 	    for (; nbytes > 0; nbytes -= 1) {
 		dst[nbytes] = src[nbytes];
 	    }
 	};
 	""") == Pair{Int, Any}[
-	 0 => (q":", Any[!"void", !"byte", q"_", :INDEX, !"byte", q"_", :INDEX, !"size_t", :CALL => 3],
-		!"memcpy",
-		(:fn, Any[(q":", nothing, !"src", nothing),
-			(q":", nothing, !"dst", nothing),
-			(q":", nothing, !"nbytes", nothing)],
+	 0 => (q":", !"memcpy", nothing,
+		(:fn, Any[
+			(q":", !"src", Any[!"byte", q"_", :INDEX], nothing),
+			(q":", !"dst", Any[!"byte", q"_", :INDEX], nothing),
+			(q":", !"nbytes", Any[!"size_t"], nothing)],
+			Any[!"void"],
 			Pair{Int, Any}[
 			 1 => (q"for", Any[], Any[!"nbytes", 0, q">"], Any[!"nbytes", 1, q"-="]),
 			 2 => (q";", Any[!"dst", !"nbytes", :INDEX, !"src", !"nbytes", :INDEX, q"="])
@@ -188,10 +193,11 @@ end
 	file = read("test/echo.ca", String)
 	@test Caper.ast(file) == Pair{Int, Any}[
 	 0 => (q"include", "<stdio.h>")
-	 0 => (q":", Any[!"int", !"int", !"char", q"^", q"_", :INDEX, :CALL => 2],
-		!"main",
-		(q"fn", Any[(q":", Any[!"int"], !"argc", nothing),
-			    (q":", Any[!"char", q"^", q"_", :INDEX], !"argv", nothing)],
+	 0 => (q":", !"main", nothing,
+		(q"fn", Any[
+			(q":", !"argc", Any[!"int"], nothing),
+			(q":", !"argv", Any[!"char", q"^", q"_", :INDEX], nothing)],
+			Any[!"int"],
 			Pair{Int, Any}[
 			 1 => (q"if", Any[!"argc", 2, q"<"]),
 			 2 => (q"return", Any[1]),

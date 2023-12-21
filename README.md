@@ -31,21 +31,21 @@ D"2000-01-01", T"12:00:01" # Date Time
 
 ## Declarations
 
-Variable declarations are similar to Fortran (with ':' instead of '::').
-Type specification are always value-first (in contrast with Rust, Zig, Odin, Jai, etc.).
+Variable declarations are similar to C++ uniform utilization, however,
+similar to Rust, Zig, Odin, Jai, etc., uses "<var> : <type>" instead of "<type> <var>".
 
 ```c
-int : delta = 0; // equiv. int : delta; delta = 0;
-int^ : ptr = nil;
-int[3] : array = {0, 1, 2};
-int^(int, int) : fn = add;
-: mask = h"ff"; // auto
+delta: int{0};
+ptr: int^{nil};
+array: int[3]{0, 1, 2};
+func: int(int, int)^{add};
+mask: _{h"ff"}; // auto
 ```
 
 ## Functions
 
 ```c
-void(byte_t[_], byte_t[_], size_t) : memcpy = fn (: src; : dst; : nbytes;) {
+memcpy: fn (src: byte_t[_], dst: byte_t[_], nbytes: size_t): void {
     for (; nbytes > 0; nbytes -= 1) {
         dst[nbytes] = src[nbytes];
     }

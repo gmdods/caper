@@ -2,10 +2,10 @@
 
 _tab(io, n) = for _ = 1:n; write(io, '\t') end
 
-_translate_type(io, ty::Label, name::Label) =
+_translate_type(io, name::Label, ty::Label) =
 	write(io, string(ty), ' ', string(name))
 
-function _translate_type(io, types::Vector{Any}, name::Label)
+function _translate_type(io, name::Label, types::Vector{Any})
 	size = nothing
 	named = false
 	for ty = types
@@ -134,7 +134,7 @@ function _translate_function(io, func_node)
 		_translate_type(io, arg[2], arg[3])
 	end
 	write(io, ") {\n")
-	_translate_scope(io, func_node[3])
+	_translate_scope(io, func_node[4])
 	write(io, "}\n")
 end
 
@@ -155,7 +155,7 @@ using Caper
 Caper.gen(\"""
 include C_lib"stdio.h";
 
-int(void) : main = fn () {
+main: fn (): int {
 \tputs("Hello, world!");
 \treturn 0;
 };
@@ -176,10 +176,9 @@ function gen(text::AbstractString)
 		if node[1] == q"include"
 			write(io, "#include ", node[2], '\n')
 		elseif node[1] == q":"
-			type = node[2]
-			name = node[3]
+			name = node[2]
 			func_node = node[4]
-			_translate_type(io, type[1], name)
+			_translate_type(io, name, func_node[3])
 			_translate_function(io, func_node)
 		else
 			@assert false "Not implemented"

@@ -71,7 +71,7 @@ function _error_message(auto::Automata, index, error)
 end
 
 # https://en.wikipedia.org/wiki/Shunting_yard_algorithm#The_algorithm_in_detail
-function _expression(auto::Automata, index::Int)
+function _expression(auto::Automata, index::Int; type=false)
 	local out = Any[]
 	local stack = Any[]
 
@@ -107,6 +107,7 @@ function _expression(auto::Automata, index::Int)
 				push!(out, :CALL => sentinel.second + nonvoid)
 			end
 		elseif issigil(token)
+			type && break
 			push!(stack, token => 0)
 		elseif token == q"}"
 			nonvoid = !issigil(intro)
@@ -178,6 +179,9 @@ function _function(auto::Automata, index; depth)
 		# @info "var" index var
 		(next, index) = _expect(auto, index, [q",", q")"])
 	end
+	(_, index) = _expect(auto, index, q":")
+	(type, index) = _expression(auto, index; type=true)
+	(_, ahead) = _expect(auto, index, q"{")
 
 	defn = Pair{Int, Any}[]
 	state = (index, depth, 0)
@@ -187,34 +191,28 @@ function _function(auto::Automata, index; depth)
 		link == (depth => nothing) && break
 		!isnothing(link.second) && push!(defn, link)
 	end
-	node = (q"fn", args, defn)
+	node = (q"fn", args, type, defn)
 	(node, state[1])
 end
 
 function _declare(auto::Automata, index; depth=0)
-	(out, index) = _expression(auto, index)
-	(token, ahead) = _expect(auto, index, [q";", q":"])
-	if token == q";"
-		node = (q";", out)
-	elseif token == q":"
-		index = ahead
-		type = isempty(out) ? nothing : out
-		(token, index) = _expect(auto, index, Label)
+	(name, index) = _expect(auto, index, Label)
+	(_, index) = _expect(auto, index, q":")
+	(keyword, ahead) = _required(auto, index)
+	if keyword == q"fn" # special form
+		(out, index) = _function(auto, ahead; depth)
+		type = nothing
+	else
+		(type, index) = _expression(auto, index; type=true)
 		(then, ahead) = _required(auto, index)
-		if then == q"="
-			index = ahead
-			(keyword, ahead) = _required(auto, index)
-			if keyword == q"fn" # special form
-				(out, index) = _function(auto, ahead; depth)
-			else
-				(out, index) = _expression(auto, index)
-			end
+		if then == q"{"
+			(out, index) = _expression(auto, index)
 			# @info "decl" index _row(out) _row(type)
 		else
 			out = nothing
 		end
-		node = (q":", type, token, out)
 	end
+	node = (q":", name, type, out)
 	(node, index)
 end
 
@@ -263,7 +261,7 @@ function _scope(auto::Automata, token, state; intro)
 		if label == q";"
 			node = (token, :LOOP)
 		else
-			@assert label isa Label _error_message(auto, index, "expected a name.")
+			@assert label isa Label _error_message(auto, index, "expected a name, got: $token.")
 			(_, index) = _expect(auto, index, q";")
 			node = (token, label)
 		end
@@ -271,7 +269,7 @@ function _scope(auto::Automata, token, state; intro)
 		depth += 1
 		nest = depth
 	elseif token == q"}"
-		@assert depth > 0 _error_message(auto, index, "too many '}'.")
+		@assert depth > 0 _error_message(auto, index, "too many `}`.")
 		depth -= 1
 		indent -= (indent > 0)
 		nest = depth
@@ -280,11 +278,17 @@ function _scope(auto::Automata, token, state; intro)
 	else
 		(peek, ahead) = _required(auto, index)
 		if peek == q"::"
+			@assert token isa Label _error_message(auto, index, "expected a name, got: $token.")
 			node = (q"::", token)
 			index = ahead
-		else
+		elseif peek == q":"
+			@assert token isa Label _error_message(auto, index, "expected a name, got: $token.")
 			(node, index) = _declare(auto, intro; depth)
 			(_, index) = _expect(auto, index, q";")
+		else
+			(out, index) = _expression(auto, intro)
+			(token, index) = _expect(auto, index, q";")
+			node = (token, out)
 		end
 	end
 	indent = level
