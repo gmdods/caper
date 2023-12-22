@@ -8,11 +8,11 @@
 
 - [x] Write a C-like parser
 
-- [ ] Write a Caper interpreter in Julia
-
-- [ ] Write utility programs in Caper
+- [x] Write utility programs in Caper
 
 - [ ] Write a Caper to C translator (Julia or Caper)
+
+- [ ] Write a Caper interpreter in Julia
 
 - [ ] Write a Caper compiler in Caper (Self-Host!).
 

@@ -1,5 +1,5 @@
 # Caper
-An attempt at a compile-time C.
+An attempt at an extended C.
 
 ## Building
 
@@ -31,7 +31,7 @@ D"2000-01-01", T"12:00:01" # Date Time
 
 ## Declarations
 
-Variable declarations are similar to C++ uniform utilization, however,
+Variable declarations are similar to C++ uniform initialization, however,
 similar to Rust, Zig, Odin, Jai, etc., uses "<var> : <type>" instead of "<type> <var>".
 
 ```c
@@ -49,5 +49,5 @@ memcpy: fn (src: byte_t[_], dst: byte_t[_], nbytes: size_t): void {
     for (; nbytes > 0; nbytes -= 1) {
         dst[nbytes] = src[nbytes];
     }
-}
+};
 ```
