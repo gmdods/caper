@@ -32,7 +32,7 @@ D"2000-01-01", T"12:00:01" # Date Time
 ## Declarations
 
 Variable declarations are similar to C++ uniform initialization, however,
-similar to Rust, Zig, Odin, Jai, etc., uses "<var> : <type>" instead of "<type> <var>".
+similar to Rust, Zig, Odin, Jai, etc., uses `<var> : <type>` instead of `<type> <var>`.
 
 ```c
 delta: int{0};
