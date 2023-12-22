@@ -109,8 +109,12 @@ function _translate_scope(io::IO, scope::Vector{Pair{Int, Any}}; depth=0)
 			_translate_expression(io, node[2])
 			write(io, ";\n")
 		elseif node[1] == q":"
-			_translate_declaration(io, node)
-			write(io, '\n')
+			if _translate_declaration(io, node)
+				write(io, '\n')
+			else
+				write(io, "extern ")
+				_forward(io, node; forward=false)
+			end
 		else
 			@assert false "Not implemented $node"
 		end
@@ -146,7 +150,7 @@ function _translate_declaration(io::IO, node)
 	return true
 end
 
-function _forward(io::IO, node; depth=0)
+function _forward(io::IO, node; forward=true, depth=0)
 	node[1] == q":" || return false
 	func_node = node[4]
 	func_node isa Tuple || return false
@@ -154,9 +158,11 @@ function _forward(io::IO, node; depth=0)
 	_translate_type(io, node[2], func_node[3])
 	_translate_function(io, func_node)
 	write(io, ";\n")
+	forward || return true
 	for (nest, node) = func_node[4]
 		_forward(io, node; depth=nest)
 	end
+	write(io, '\n')
 	_translate_type(io, node[2], func_node[3])
 	_translate_function(io, func_node)
 	write(io, " {\n")
@@ -189,10 +195,13 @@ main: fn (): int {
 \""") |> print
 # output
 #include <stdio.h>
+int main();
+
 int main() {
 \tputs("Hello, world!");
 \treturn 0;
 }
+
 ```
 """
 function gen(text::AbstractString)
