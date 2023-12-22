@@ -79,9 +79,6 @@ function Base.iterate(lexer::Lookahead, index=1)
         elseif c in Sigils && _checkemit(lexer, s + 1) == '{'
                 r = Symbol(c * '{')
                 (r, s + 2)
-        elseif c == ':' && _checkemit(lexer, s + 1) == ':'
-                r = q"::"
-                (r, s + 2)
         else
                 r = Symbol(c)
                 (r, s + 1)

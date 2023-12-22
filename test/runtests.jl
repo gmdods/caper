@@ -67,15 +67,16 @@ end
 	 1 => (q";", Any[!"puts", !"argv", 1, :INDEX, :CALL => 1]),
 	]
         @test Caper.ast("""
-		for (i = 0; i != 10; i += 1) {
+		for (i: int{0}; i != 10; i += 1) {
 			printf(Fmt"%d", i);
 		}
         """) == Pair{Int, Any}[
-	 0 => (q"for", Any[!"i", 0, q"="], Any[!"i", 10, q"!="], Any[!"i", 1, q"+="])
+	 0 => (q"for", (q":", !"i", Any[!"int"], Any[0, :RECORD => 1]),
+		 Any[!"i", 10, q"!="], Any[!"i", 1, q"+="])
 	 1 => (q";", Any[!"printf", "%d", !"i", :CALL => 2])
 	]
         @test Caper.ast("""
-		outer :: for (i = 0; i != 10; i += 1) {
+		#outer for (i = 0; i != 10; i += 1) {
 			if (i == 1) continue;
 			for (j = 0; j != 10; j += 1) {
 				printf(Fmt"%d", i);
@@ -83,11 +84,11 @@ end
 			}
 		}
         """) == Pair{Int, Any}[
-	 0 => (q"::", !"outer")
-	 0 => (q"for", Any[!"i", 0, q"="], Any[!"i", 10, q"!="], Any[!"i", 1, q"+="])
+	 0 => (q"#", !"outer")
+	 0 => (q"for", (q";", Any[!"i", 0, q"="]), Any[!"i", 10, q"!="], Any[!"i", 1, q"+="])
 	 1 => (q"if", Any[!"i", 1, q"=="])
 	 2 => (q"continue", :LOOP)
-	 1 => (q"for", Any[!"j", 0, q"="], Any[!"j", 10, q"!="], Any[!"j", 1, q"+="])
+	 1 => (q"for", (q";", Any[!"j", 0, q"="]), Any[!"j", 10, q"!="], Any[!"j", 1, q"+="])
 	 2 => (q";", Any[!"printf", "%d", !"i", :CALL => 2])
 	 2 => (q"if", Any[!"i", 5, q">="])
 	 3 => (q"break", !"outer")
@@ -185,7 +186,8 @@ end
 			(q":", !"nbytes", Any[!"size_t"], nothing)],
 			Any[!"void"],
 			Pair{Int, Any}[
-			 1 => (q"for", Any[], Any[!"nbytes", 0, q">"], Any[!"nbytes", 1, q"-="]),
+			 1 => (q"for", (q";", Any[]),
+				Any[!"nbytes", 0, q">"], Any[!"nbytes", 1, q"-="]),
 			 2 => (q";", Any[!"dst", !"nbytes", :INDEX, !"src", !"nbytes", :INDEX, q"="])
 			]))
 	]

@@ -66,8 +66,11 @@ function _error_message(auto::Automata, index, error)
 	column = index - lastline
 	line = 1 + count(==('\n'), view(auto.lexer.text, 1:lastline))
 	endline = something(findnext(==('\n'), auto.lexer.text, index), lastindex(auto.lexer.text))
-	word = view(auto.lexer.text, (1+lastline):endline)
-	"$(auto.file):$line:$column $error\n\t $word"
+	span = (1+lastline):endline
+	word = view(auto.lexer.text, span)
+	remain = index:endline
+	underline = string(' '^(length(span) - length(remain) - 1), '^', ' '^length(remain))
+	"$(auto.file):$line:$column $error\n\t$word\t$underline"
 end
 
 # https://en.wikipedia.org/wiki/Shunting_yard_algorithm#The_algorithm_in_detail
@@ -204,15 +207,32 @@ function _declare(auto::Automata, index; depth=0)
 		type = nothing
 	else
 		(type, index) = _expression(auto, index; type=true)
-		(then, ahead) = _required(auto, index)
-		if then == q"{"
-			(out, index) = _expression(auto, index)
-			# @info "decl" index _row(out) _row(type)
-		else
+		(out, index) = _expression(auto, index)
+		if isempty(out)
 			out = nothing
+		else
+			init = last(out)
+			@assert init isa Pair && init.first == :RECORD _error_message(auto, index, "expected a record, got: $init.")
 		end
 	end
 	node = (q":", name, type, out)
+	(node, index)
+end
+
+function _statement(auto, index; depth)
+	intro = index
+	(name, index) = _required(auto, index)
+	(peek, _) = _required(auto, index)
+	# @info "statement" name peek index
+	if peek == q":"
+		@assert name isa Label _error_message(auto, index, "expected a name, got: $name.")
+		(node, index) = _declare(auto, intro; depth)
+		(_, index) = _expect(auto, index, q";")
+	else
+		(out, index) = _expression(auto, intro)
+		(token, index) = _expect(auto, index, q";")
+		node = (token, out)
+	end
 	(node, index)
 end
 
@@ -230,13 +250,12 @@ function _scope(auto::Automata, token, state; intro)
 	level = indent - (indent > 0)
 	if token == q"for" # special form
 		(_, index) = _expect(auto, index, q"(")
-		(pre, index) = _expression(auto, index)
-		(_, index) = _expect(auto, index, q";")
+		(init, index) = _statement(auto, index; depth)
 		(cond, index) = _expression(auto, index)
 		(_, index) = _expect(auto, index, q";")
 		(post, index) = _expression(auto, index)
 		(_, index) = _expect(auto, index, q")")
-		node = (token, pre, cond, post)
+		node = (token, init, cond, post)
 		level = indent + _indent(auto, index)
 	elseif token in Conditionals
 		(_, index) = _expect(auto, index, q"(")
@@ -275,21 +294,12 @@ function _scope(auto::Automata, token, state; intro)
 		nest = depth
 	elseif token == q";"
 		node = token
+	elseif token == q"#"
+		(name, index) = _required(auto, index)
+		@assert name isa Label _error_message(auto, index, "expected a name, got: $name.")
+		node = (q"#", name)
 	else
-		(peek, ahead) = _required(auto, index)
-		if peek == q"::"
-			@assert token isa Label _error_message(auto, index, "expected a name, got: $token.")
-			node = (q"::", token)
-			index = ahead
-		elseif peek == q":"
-			@assert token isa Label _error_message(auto, index, "expected a name, got: $token.")
-			(node, index) = _declare(auto, intro; depth)
-			(_, index) = _expect(auto, index, q";")
-		else
-			(out, index) = _expression(auto, intro)
-			(token, index) = _expect(auto, index, q";")
-			node = (token, out)
-		end
+		(node, index) = _statement(auto, intro; depth)
 	end
 	indent = level
 	state = (index, depth, indent)
