@@ -2,38 +2,27 @@
 
 _tab(io, n) = for _ = 1:n; write(io, '\t') end
 
-_translate_type(io::IO, name::Label, ty::Label) =
-	write(io, string(ty), ' ', string(name))
-
 function _translate_type(io::IO, name::Label, types::Vector{Any})
-	size = nothing
-	named = false
-	for ty = types
-		if ty isa Label
-			write(io, string(ty))
-		elseif ty == q"^"
-			write(io, " *")
-		elseif ty == q"_"
-			size = nothing
-		elseif ty == :INDEX
-			write(io, ' ', string(name), '[')
-			named = true
-			isnothing(size) || write(io, string(size))
-			write(io, ']')
-		elseif ty isa Number
-			size = ty
-		else
-			@assert false "Not implemented"
-		end
+	isempty(types) && return
+	@assert types[1] isa Label
+	ind = lastindex(types)
+
+	retptr = something(findnext(!=(q"^"), types, 2), ind+1)
+	write(io, string(types[1]), ' ', '*'^(retptr-2), ' '^min(retptr-2, 1))
+	if retptr == ind + 1
+		write(io, string(name))
+		return
 	end
-	if !named
-		write(io, ' ', string(name))
-	end
+
+	varptr = ind - something(findprev(!=(q"^"), types, ind), 0)
+
+	name_ptr = (varptr == 0) ? name : Label(string('(', '*'^(varptr), string(name), ')'))
+	_translate_expression(io, [name_ptr; view(types, retptr:ind-varptr)])
 end
 
 function _translate_expression(io::IO, expression::Vector{Any})
 	isempty(expression) && return
-	stack = String[]
+	local stack = String[]
 	for e = expression
 		if e isa Symbol
 			if e in Operator2
@@ -51,6 +40,8 @@ function _translate_expression(io::IO, expression::Vector{Any})
 				arg = pop!(stack)
 				name = pop!(stack)
 				push!(stack, string(name, '[', arg, ']'))
+			elseif e == q"_"
+				push!(stack, "")
 			else
 				@assert false "Not implemented $e"
 			end
@@ -79,32 +70,37 @@ function _translate_expression(io::IO, expression::Vector{Any})
 	write(io, pop!(stack))
 end
 
-function _translate_scope(io::IO, scope::Vector{Pair{Int, Any}})
+function _translate_scope(io::IO, scope::Vector{Pair{Int, Any}}; depth=0)
+	local indent = depth
 	local level = 0
 	for item = scope
 		(depth, node) = item
 		# @info "scope" node depth level
 		if level > depth
-			_tab(io, depth)
+			_tab(io, depth - indent)
 			write(io, "}\n")
 		end
-		_tab(io, depth)
+		_tab(io, depth - indent)
 		if node[1] in Conditionals
 			write(io, string(node[1]), " (")
-			_translate_expression(io, node[2])
 			if node[1] == q"for" # special form
-				write(io, ";")
+				if node[2] isa Tuple
+					_translate_declaration(io, node[2])
+				else
+					_translate_expression(io, node[2])
+					write(io, ";")
+				end
 				_translate_expression(io, node[3])
 				write(io, ";")
 				_translate_expression(io, node[4])
+			else
+				_translate_expression(io, node[2])
 			end
 			write(io, ") {\n")
-			indent = true
 		elseif node[1] == q"defer" # special form
 			@assert false "Not implemented $node"
 		elseif node[1] in Statements
 			write(io, string(node[1]), " {\n")
-			indent = true
 		elseif node[1] == q"return"
 			write(io, "return ")
 			_translate_expression(io, node[2])
@@ -114,10 +110,15 @@ function _translate_scope(io::IO, scope::Vector{Pair{Int, Any}})
 			write(io, ";\n")
 		elseif node[1] == q":"
 			_translate_declaration(io, node)
+			write(io, '\n')
 		else
 			@assert false "Not implemented $node"
 		end
 		level = depth
+	end
+	if level > indent + 1
+		_tab(io, indent + 1)
+		write(io, "}\n")
 	end
 end
 
@@ -134,32 +135,34 @@ end
 
 function _translate_declaration(io::IO, node)
 	func_node = node[4]
-	func_node isa Tuple && return
-	@assert func_node isa AbstractVector
+	func_node isa Tuple && return false
+	@assert func_node isa Union{AbstractVector, Nothing} "Expected declaration, got $func_node."
 	_translate_type(io, node[2], node[3])
 	if !isnothing(node[4])
 		write(io, " = ")
-		_translate_expression(io, node[4])
+		_translate_expression(io, func_node)
 	end
-	write(io, ";\n")
+	write(io, ';')
+	return true
 end
 
-function _forward(io::IO, node)
-	node[1] == q":" || return
+function _forward(io::IO, node; depth=0)
+	node[1] == q":" || return false
 	func_node = node[4]
-	func_node isa Tuple || return
+	func_node isa Tuple || return false
 	@assert func_node[1] == q"fn"
 	_translate_type(io, node[2], func_node[3])
 	_translate_function(io, func_node)
 	write(io, ";\n")
-	for (_, node) = func_node[4]
-		_forward(io, node)
+	for (nest, node) = func_node[4]
+		_forward(io, node; depth=nest)
 	end
 	_translate_type(io, node[2], func_node[3])
 	_translate_function(io, func_node)
 	write(io, " {\n")
-	_translate_scope(io, func_node[4])
+	_translate_scope(io, func_node[4]; depth)
 	write(io, "}\n")
+	return true
 end
 
 """
@@ -201,7 +204,9 @@ function gen(text::AbstractString)
 			write(io, "#include ", node[2], '\n')
 		elseif node[1] == q":"
 			_forward(io, node)
-			_translate_declaration(io, node)
+			if _translate_declaration(io, node)
+				write(io, '\n')
+			end
 		end
 	end
 	String(take!(io))

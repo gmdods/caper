@@ -1,0 +1,6 @@
+include C_lib"stdlib.h";
+
+foreach: fn (sz: size_t, mem: char[_], func: void(char)^): void {
+	for (i: size_t{0}; i != sz; i += 1)
+		func(i);
+};

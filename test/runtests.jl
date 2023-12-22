@@ -210,7 +210,7 @@ end
 end
 
 @testset "Codegen" begin
-	for f = ["echo", "cat", "rec"]
+	for f = ["echo", "cat", "rec", "foreach"]
 		file = read("test/$f.ca", String)
 		file_c = read("test/$f.c", String)
 		@test Caper.gen(file) == file_c
