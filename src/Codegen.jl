@@ -1,11 +1,11 @@
-## module Caper, codegener functions
+## module Caper, codegen functions
 
 _tab(io, n) = for _ = 1:n; write(io, '\t') end
 
-_translate_type(io, name::Label, ty::Label) =
+_translate_type(io::IO, name::Label, ty::Label) =
 	write(io, string(ty), ' ', string(name))
 
-function _translate_type(io, name::Label, types::Vector{Any})
+function _translate_type(io::IO, name::Label, types::Vector{Any})
 	size = nothing
 	named = false
 	for ty = types
@@ -31,7 +31,7 @@ function _translate_type(io, name::Label, types::Vector{Any})
 	end
 end
 
-function _translate_expression(io, expression::Vector{Any})
+function _translate_expression(io::IO, expression::Vector{Any})
 	isempty(expression) && return
 	stack = String[]
 	for e = expression
@@ -79,7 +79,8 @@ function _translate_expression(io, expression::Vector{Any})
 	write(io, pop!(stack))
 end
 
-function _translate_scope(io, scope::Vector{Pair{Int, Any}}; level=0)
+function _translate_scope(io::IO, scope::Vector{Pair{Int, Any}})
+	local level = 0
 	for item = scope
 		(depth, node) = item
 		# @info "scope" node depth level
@@ -112,12 +113,7 @@ function _translate_scope(io, scope::Vector{Pair{Int, Any}}; level=0)
 			_translate_expression(io, node[2])
 			write(io, ";\n")
 		elseif node[1] == q":"
-			_translate_type(io, node[2], node[3])
-			if !isnothing(node[4])
-				write(io, " = ")
-				_translate_expression(io, node[4])
-			end
-			write(io, ";\n")
+			_translate_declaration(io, node)
 		else
 			@assert false "Not implemented $node"
 		end
@@ -125,7 +121,7 @@ function _translate_scope(io, scope::Vector{Pair{Int, Any}}; level=0)
 	end
 end
 
-function _translate_function(io, func_node)
+function _translate_function(io::IO, func_node)
 	@assert func_node[1] == q"fn"
 	write(io, '(')
 	for (i, arg) = enumerate(func_node[2])
@@ -133,7 +129,35 @@ function _translate_function(io, func_node)
 		i > 1 && write(io, ", ")
 		_translate_type(io, arg[2], arg[3])
 	end
-	write(io, ") {\n")
+	write(io, ')')
+end
+
+function _translate_declaration(io::IO, node)
+	func_node = node[4]
+	func_node isa Tuple && return
+	@assert func_node isa AbstractVector
+	_translate_type(io, node[2], node[3])
+	if !isnothing(node[4])
+		write(io, " = ")
+		_translate_expression(io, node[4])
+	end
+	write(io, ";\n")
+end
+
+function _forward(io::IO, node)
+	node[1] == q":" || return
+	func_node = node[4]
+	func_node isa Tuple || return
+	@assert func_node[1] == q"fn"
+	_translate_type(io, node[2], func_node[3])
+	_translate_function(io, func_node)
+	write(io, ";\n")
+	for (_, node) = func_node[4]
+		_forward(io, node)
+	end
+	_translate_type(io, node[2], func_node[3])
+	_translate_function(io, func_node)
+	write(io, " {\n")
 	_translate_scope(io, func_node[4])
 	write(io, "}\n")
 end
@@ -169,19 +193,15 @@ int main() {
 ```
 """
 function gen(text::AbstractString)
-	io = IOBuffer()
-        for item = ast(text)
-		(depth, node) = item
+	local astree = ast(text)
+	local io = IOBuffer(read=false)
+	for (depth, node) = astree
 		@assert depth == 0
 		if node[1] == q"include"
 			write(io, "#include ", node[2], '\n')
 		elseif node[1] == q":"
-			name = node[2]
-			func_node = node[4]
-			_translate_type(io, name, func_node[3])
-			_translate_function(io, func_node)
-		else
-			@assert false "Not implemented"
+			_forward(io, node)
+			_translate_declaration(io, node)
 		end
 	end
 	String(take!(io))

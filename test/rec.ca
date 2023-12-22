@@ -1,0 +1,12 @@
+include C_lib"stdlib.h";
+
+memory: char[32] {};
+// OCaml style recursion
+find: fn (sz: size_t, mem: char[_], c: char): size_t {
+	loop: fn (sz: size_t, mem: char[_], c: char, ext: size_t): size_t {
+		if (ext >= sz) return sz;
+		if (mem[ext] == c) return ext;
+		return loop(sz, mem, c, ext + 1);
+	};
+	return loop(sz, mem, c, 0);
+};

@@ -62,14 +62,18 @@ struct Automata
 end
 
 function _error_message(auto::Automata, index, error)
-	lastline = something(findprev(==('\n'), auto.lexer.text, index), 0)
-	column = index - lastline
+	local column = 0
+	local lastline = index + 1
+	while column == 0
+		lastline = something(findprev(==('\n'), auto.lexer.text, lastline - 1), 0)
+		column = index - lastline
+	end
 	line = 1 + count(==('\n'), view(auto.lexer.text, 1:lastline))
 	endline = something(findnext(==('\n'), auto.lexer.text, index), lastindex(auto.lexer.text))
 	span = (1+lastline):endline
 	word = view(auto.lexer.text, span)
 	remain = index:endline
-	underline = string(' '^(length(span) - length(remain) - 1), '^', ' '^length(remain))
+	underline = string(' '^max(length(span) - length(remain) - 1, 0), '^', ' '^length(remain))
 	"$(auto.file):$line:$column $error\n\t$word\t$underline"
 end
 
