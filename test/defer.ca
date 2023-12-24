@@ -1,0 +1,27 @@
+// Cat
+include C_lib"stdio.h";
+include C_lib"stdlib.h";
+
+main: fn (argc: int, argv: char^[_]): int {
+	if (argc < 2) { // print error
+		return 1;
+	}
+	f: FILE^{fopen(argv[1], "r")};
+	if (!f) return 1;
+	defer { fclose(f); }
+
+	ptr: char^{malloc(4096 * sizeof(char))};
+	if (!p) return 1;
+	defer { free(ptr); }
+	nbytes: size_t{0};
+
+	while (4096 == (nbytes = fread(ptr, 1, 4096, f))) {
+		fwrite(ptr, 1, 4096, stdout);
+	}
+	if (ferror(f))
+		return 1;
+	if ((nbytes > 0) & feof(f))
+		fwrite(ptr, 1, nbytes, stdout);
+
+	return 0;
+};

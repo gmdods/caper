@@ -70,17 +70,20 @@ function _translate_expression(io::IO, expression::Vector{Any})
 	write(io, pop!(stack))
 end
 
-function _translate_scope(io::IO, scope::Vector{Pair{Int, Any}}; depth=0)
-	local indent = depth
-	local level = 0
+function _translate_scope(io::IO, scope::Vector{Node}; depth=0, indent=depth)
+	local level = depth
+	local defer = Dict{Int, Vector{Node}}()
 	for item = scope
 		(depth, node) = item
-		# @info "scope" node depth level
+		# @info "scope" node defer depth level
 		if level > depth
 			_tab(io, depth - indent)
 			write(io, "}\n")
+			for d = depth+1:level
+				delete!(defer, d)
+			end
 		end
-		_tab(io, depth - indent)
+		node[1] != q"defer" && _tab(io, depth - indent)
 		if node[1] in Conditionals
 			write(io, string(node[1]), " (")
 			if node[1] == q"for" # special form
@@ -98,10 +101,18 @@ function _translate_scope(io::IO, scope::Vector{Pair{Int, Any}}; depth=0)
 			end
 			write(io, ") {\n")
 		elseif node[1] == q"defer" # special form
-			@assert false "Not implemented $node"
+			append!(get!(defer, depth, Node[]), node[2])
 		elseif node[1] in Statements
 			write(io, string(node[1]), " {\n")
 		elseif node[1] == q"return"
+			for k in keys(defer)
+				if depth >= k
+					write(io, "{\n")
+					# @info "defer" k defer[k] depth
+					_translate_scope(io, defer[k]; depth, indent=k-depth)
+					_tab(io, depth - indent)
+				end
+			end
 			write(io, "return ")
 			_translate_expression(io, node[2])
 			write(io, ";\n")
@@ -121,7 +132,7 @@ function _translate_scope(io::IO, scope::Vector{Pair{Int, Any}}; depth=0)
 		level = depth
 	end
 	if level > indent + 1
-		_tab(io, indent + 1)
+		_tab(io, level-indent-1)
 		write(io, "}\n")
 	end
 end

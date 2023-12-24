@@ -190,14 +190,7 @@ function _function(auto::Automata, index; depth)
 	(type, index) = _expression(auto, index; type=true)
 	(_, ahead) = _expect(auto, index, q"{")
 
-	defn = Pair{Int, Any}[]
-	state = (index, depth, 0)
-	while (iter = _iterate(auto, state); !isnothing(iter))
-		(link, state) = iter
-		# @info "fn" iter defn
-		link == (depth => nothing) && break
-		!isnothing(link.second) && push!(defn, link)
-	end
+	(state, defn) = _collect(auto, (index, depth, 0))
 	node = (q"fn", args, type, defn)
 	(node, state[1])
 end
@@ -268,6 +261,10 @@ function _scope(auto::Automata, token, state; intro)
 		node = (token, out)
 
 		level = indent + _indent(auto, index)
+	elseif token == q"defer" #special form
+		(state, defn) = _collect(auto, (index, depth, indent))
+		(index, depth, indent) = state
+		node = (token, defn)
 	elseif token in Statements
 		node = (token,)
 		level = indent + _indent(auto, index)
@@ -318,6 +315,19 @@ end
 	_scope(auto, token, state; intro)
 end
 
+const Node = Pair{Int, Any}
+
+function _collect(auto, state)
+	defn = Node[]
+	depth = state[2]
+	while (iter = _iterate(auto, state); !isnothing(iter))
+		(link, state) = iter
+		link == (depth => nothing) && break
+		!isnothing(link.second) && push!(defn, link)
+	end
+	return state, defn
+end
+
 # state = (index, depth, indent)
 function Base.iterate(auto::Automata, state=(1, 0, 0))
 	while (iter = _iterate(auto, state); !isnothing(iter))
@@ -326,7 +336,7 @@ function Base.iterate(auto::Automata, state=(1, 0, 0))
 	end
 end
 
-Base.eltype(::Type{Automata}) = Pair{Int, Any}
+Base.eltype(::Type{Automata}) = Node
 Base.IteratorSize(::Type{Automata}) = Base.SizeUnknown()
 
 """
