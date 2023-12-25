@@ -4,22 +4,22 @@
 Methods for lexing files
 """
 
-struct Lookahead
+struct _Lexer
         text::String
         length::Int
-        Lookahead(text::AbstractString) = new(text, length(text))
+        _Lexer(text::AbstractString) = new(text, length(text))
 end
 
-_emit(lexer::Lookahead, index::Int) = lexer.text[index]
-_emit(lexer::Lookahead, index) = view(lexer.text, index)
-_checkemit(lexer::Lookahead, index::Int) = (index <= lexer.length) ? _emit(lexer, index) : nothing
-_checkemit(lexer::Lookahead, index) = checkbounds(Bool, lexer.text, index) ? _emit(lexer, index) : nothing
+_emit(lexer::_Lexer, index::Int) = lexer.text[index]
+_emit(lexer::_Lexer, index) = view(lexer.text, index)
+_checkemit(lexer::_Lexer, index::Int) = (index <= lexer.length) ? _emit(lexer, index) : nothing
+_checkemit(lexer::_Lexer, index) = checkbounds(Bool, lexer.text, index) ? _emit(lexer, index) : nothing
 
-_find(lexer::Lookahead, p, index) = findnext(p, lexer.text, index)
-_seek(lexer::Lookahead, p, index) = something(_find(lexer, p, index), lexer.length + 1)
+_find(lexer::_Lexer, p, index) = findnext(p, lexer.text, index)
+_seek(lexer::_Lexer, p, index) = something(_find(lexer, p, index), lexer.length + 1)
 
-_rfind(lexer::Lookahead, p, index) = findprev(p, lexer.text, index)
-_rseek(lexer::Lookahead, p, index) = something(_rfind(lexer, p, index), 0)
+_rfind(lexer::_Lexer, p, index) = findprev(p, lexer.text, index)
+_rseek(lexer::_Lexer, p, index) = something(_rfind(lexer, p, index), 0)
 
 const KeywordString = [
 	"_", "nil", "fn", "include", "defer",
@@ -35,7 +35,7 @@ const Sigils = "@"
 const Quoted = "\'\""
 const Comment = "//"
 
-function _quoted(lexer::Lookahead, s::Int)
+function _quoted(lexer::_Lexer, s::Int)
 	c = _checkemit(lexer, s)
 	@assert c in Quoted
 	t = _find(lexer, ==(c), s + 1)
@@ -46,7 +46,7 @@ end
 
 _reserved(word::AbstractString) = (word in KeywordString) ? Symbol(word) : Label(word)
 
-function Base.iterate(lexer::Lookahead, index=1)
+function Base.iterate(lexer::_Lexer, index=1)
         index = _find(lexer, !isspace, index)
         !isnothing(index) || return nothing
 	while _checkemit(lexer, index:index+1) == Comment
@@ -85,8 +85,8 @@ function Base.iterate(lexer::Lookahead, index=1)
         end
 end
 
-Base.IteratorEltype(::Type{Lookahead}) = Base.EltypeUnknown()
-Base.IteratorSize(::Type{Lookahead}) = Base.SizeUnknown()
+Base.IteratorEltype(::Type{_Lexer}) = Base.EltypeUnknown()
+Base.IteratorSize(::Type{_Lexer}) = Base.SizeUnknown()
 
 """
 	lex(text)
@@ -112,6 +112,6 @@ julia> Caper.lex("x |= h'1f'")
 ```
 """
 function lex(text::AbstractString)
-        collect(Lookahead(text))
+        collect(_Lexer(text))
 end
 

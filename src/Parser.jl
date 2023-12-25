@@ -56,34 +56,34 @@ const opening = issigil | ==(q"(")
 
 Base.:(==)(a::Pair{Symbol, Int}, b::Symbol) = a.first == b
 
-struct Automata
-	lexer::Lookahead
+struct _Parser
+	lexer::_Lexer
 	file::String
 end
 
-function _error_message(auto::Automata, index, error)
+function _error_message(parser::_Parser, index, error)
 	local column = 0
 	local lastline = index + 1
 	while column == 0
-		lastline = something(findprev(==('\n'), auto.lexer.text, lastline - 1), 0)
+		lastline = something(findprev(==('\n'), parser.lexer.text, lastline - 1), 0)
 		column = index - lastline
 	end
-	line = 1 + count(==('\n'), view(auto.lexer.text, 1:lastline))
-	endline = something(findnext(==('\n'), auto.lexer.text, index), lastindex(auto.lexer.text))
+	line = 1 + count(==('\n'), view(parser.lexer.text, 1:lastline))
+	endline = something(findnext(==('\n'), parser.lexer.text, index), lastindex(parser.lexer.text))
 	span = (1+lastline):endline
-	word = view(auto.lexer.text, span)
+	word = view(parser.lexer.text, span)
 	remain = index:endline
 	underline = string(' '^max(length(span) - length(remain) - 1, 0), '^', ' '^length(remain))
-	"$(auto.file):$line:$column $error\n\t$word\t$underline"
+	"$(parser.file):$line:$column $error\n\t$word\t$underline"
 end
 
 # https://en.wikipedia.org/wiki/Shunting_yard_algorithm#The_algorithm_in_detail
-function _expression(auto::Automata, index::Int; type=false)
+function _expression(parser::_Parser, index::Int; type=false)
 	local out = Any[]
 	local stack = Any[]
 
 	intro = nothing
-	while (iter = iterate(auto.lexer, index); !isnothing(iter))
+	while (iter = iterate(parser.lexer, index); !isnothing(iter))
 		(token, next) = iter
 		# @info "postfix" intro token _row(stack) _row(out)
 		if !(token isa Symbol)
@@ -146,99 +146,99 @@ function _expression(auto::Automata, index::Int; type=false)
 		index = next
 	end
 	while _ifmove(!=(q")"), stack, out); end
-	@assert isempty(stack) _error_message(auto, index, "malformed expression.")
+	@assert isempty(stack) _error_message(parser, index, "malformed expression.")
 	return (out, index)
 end
 
-function _required(auto::Automata, index)
-	state = iterate(auto.lexer, index)
-	@assert !isnothing(state) _error_message(auto, index, "required token.")
+function _required(parser::_Parser, index)
+	state = iterate(parser.lexer, index)
+	@assert !isnothing(state) _error_message(parser, index, "required token.")
 	state
 end
 
-function _expect(auto::Automata, index, T::Type)
-	(token, index) = _required(auto, index)
-	@assert token isa T _error_message(auto, index, "expected type $T and got $(typeof(token)).")
+function _expected(parser::_Parser, index, T::Type)
+	(token, index) = _required(parser, index)
+	@assert token isa T _error_message(parser, index, "expected type $T and got $(typeof(token)).")
 	(token, index)
 end
 
-function _expect(auto::Automata, index, expected::Symbol)
-	(token, index) = _required(auto, index)
-	@assert token == expected _error_message(auto, index, "expected `$expected` and got `$token`.")
+function _expected(parser::_Parser, index, expected::Symbol)
+	(token, index) = _required(parser, index)
+	@assert token == expected _error_message(parser, index, "expected `$expected` and got `$token`.")
 	(token, index)
 end
 
-function _expect(auto::Automata, index, expected::Vector{Symbol})
-	(token, index) = _required(auto, index)
-	@assert token in expected _error_message(auto, index,
+function _expected(parser::_Parser, index, expected::Vector{Symbol})
+	(token, index) = _required(parser, index)
+	@assert token in expected _error_message(parser, index,
 		"expected one of `$(join(string.(expected)))` and got `$token`.")
 	(token, index)
 end
 
-function _function(auto::Automata, index; depth)
-	(_, index) = _expect(auto, index, q"(")
+function _function(parser::_Parser, index; depth)
+	(_, index) = _expected(parser, index, q"(")
 	args = Any[]
-	(next, ahead) = _required(auto, index)
+	(next, ahead) = _required(parser, index)
 	next == q")" && (index = ahead) # void function
 	while next != q")"
-		(var, index) = _declare(auto, index)
+		(var, index) = _declare(parser, index)
 		push!(args, var)
 		# @info "var" index var
-		(next, index) = _expect(auto, index, [q",", q")"])
+		(next, index) = _expected(parser, index, [q",", q")"])
 	end
-	(_, index) = _expect(auto, index, q":")
-	(type, index) = _expression(auto, index; type=true)
-	(_, ahead) = _expect(auto, index, q"{")
+	(_, index) = _expected(parser, index, q":")
+	(type, index) = _expression(parser, index; type=true)
+	(_, ahead) = _expected(parser, index, q"{")
 
-	(state, defn) = _collect(auto, (index, depth, 0))
+	(state, defn) = _collect(parser, (index, depth, 0))
 	node = (q"fn", args, type, defn)
 	(node, state[1])
 end
 
-function _declare(auto::Automata, index; depth=0)
-	(name, index) = _expect(auto, index, Label)
-	(_, index) = _expect(auto, index, q":")
-	(keyword, ahead) = _required(auto, index)
+function _declare(parser::_Parser, index; depth=0)
+	(name, index) = _expected(parser, index, Label)
+	(_, index) = _expected(parser, index, q":")
+	(keyword, ahead) = _required(parser, index)
 	if keyword == q"fn" # special form
-		(out, index) = _function(auto, ahead; depth)
+		(out, index) = _function(parser, ahead; depth)
 		type = nothing
 	else
-		(type, index) = _expression(auto, index; type=true)
-		(out, index) = _expression(auto, index)
+		(type, index) = _expression(parser, index; type=true)
+		(out, index) = _expression(parser, index)
 		if isempty(out)
 			out = nothing
 		else
 			init = last(out)
-			@assert init isa Pair && init.first == :RECORD _error_message(auto, index, "expected a record, got: $init.")
+			@assert init isa Pair && init.first == :RECORD _error_message(parser, index, "expected a record, got: $init.")
 		end
 	end
 	node = (q":", name, type, out)
 	(node, index)
 end
 
-function _statement(auto, index; depth)
+function _statement(parser, index; depth)
 	intro = index
-	(name, index) = _required(auto, index)
-	(peek, _) = _required(auto, index)
+	(name, index) = _required(parser, index)
+	(peek, _) = _required(parser, index)
 	# @info "statement" name peek index
 	if peek == q":"
-		@assert name isa Label _error_message(auto, index, "expected a name, got: $name.")
-		(node, index) = _declare(auto, intro; depth)
-		(_, index) = _expect(auto, index, q";")
+		@assert name isa Label _error_message(parser, index, "expected a name, got: $name.")
+		(node, index) = _declare(parser, intro; depth)
+		(_, index) = _expected(parser, index, q";")
 	else
-		(out, index) = _expression(auto, intro)
-		(token, index) = _expect(auto, index, q";")
+		(out, index) = _expression(parser, intro)
+		(token, index) = _expected(parser, index, q";")
 		node = (token, out)
 	end
 	(node, index)
 end
 
-function _indent(auto::Automata, index)
-	(token, _) = _required(auto, index)
+function _indent(parser::_Parser, index)
+	(token, _) = _required(parser, index)
 	token != q"{"
 end
 
-function _scope(auto::Automata, token, state; intro)
+function _scope(parser::_Parser, token, state; intro)
 	(index, depth, indent) = state
 	# @info "scope" token depth index indent intro
 	node = nothing
@@ -246,81 +246,81 @@ function _scope(auto::Automata, token, state; intro)
 	nest += indent
 	level = indent - (indent > 0)
 	if token == q"for" # special form
-		(_, index) = _expect(auto, index, q"(")
-		(init, index) = _statement(auto, index; depth)
-		(cond, index) = _expression(auto, index)
-		(_, index) = _expect(auto, index, q";")
-		(post, index) = _expression(auto, index)
-		(_, index) = _expect(auto, index, q")")
+		(_, index) = _expected(parser, index, q"(")
+		(init, index) = _statement(parser, index; depth)
+		(cond, index) = _expression(parser, index)
+		(_, index) = _expected(parser, index, q";")
+		(post, index) = _expression(parser, index)
+		(_, index) = _expected(parser, index, q")")
 		node = (token, init, cond, post)
-		level = indent + _indent(auto, index)
+		level = indent + _indent(parser, index)
 	elseif token in Conditionals
-		(_, index) = _expect(auto, index, q"(")
-		(out, index) = _expression(auto, index)
-		(_, index) = _expect(auto, index, q")")
+		(_, index) = _expected(parser, index, q"(")
+		(out, index) = _expression(parser, index)
+		(_, index) = _expected(parser, index, q")")
 		node = (token, out)
 
-		level = indent + _indent(auto, index)
+		level = indent + _indent(parser, index)
 	elseif token == q"defer" #special form
-		(state, defn) = _collect(auto, (index, depth, indent))
+		(state, defn) = _collect(parser, (index, depth, indent))
 		(index, depth, indent) = state
 		node = (token, defn)
 	elseif token in Statements
 		node = (token,)
-		level = indent + _indent(auto, index)
+		level = indent + _indent(parser, index)
 	elseif token == q"return"
-		(out, index) = _expression(auto, index)
-		(_, index) = _expect(auto, index, q";")
+		(out, index) = _expression(parser, index)
+		(_, index) = _expected(parser, index, q";")
 		node = (token, out)
 	elseif token == q"include"
-		(lib, index) = _expect(auto, index, AbstractString)
-		(_, index) = _expect(auto, index, q";")
+		(lib, index) = _expected(parser, index, AbstractString)
+		(_, index) = _expected(parser, index, q";")
 		node = (token, lib)
 	elseif token in Labels
-		(label, index) = _required(auto, index)
+		(label, index) = _required(parser, index)
 		if label == q";"
 			node = (token, :LOOP)
 		else
-			@assert label isa Label _error_message(auto, index, "expected a name, got: $token.")
-			(_, index) = _expect(auto, index, q";")
+			@assert label isa Label _error_message(parser, index, "expected a name, got: $token.")
+			(_, index) = _expected(parser, index, q";")
 			node = (token, label)
 		end
 	elseif token == q"{"
 		depth += 1
 		nest = depth
 	elseif token == q"}"
-		@assert depth > 0 _error_message(auto, index, "too many `}`.")
+		@assert depth > 0 _error_message(parser, index, "too many `}`.")
 		depth -= 1
 		indent -= (indent > 0)
 		nest = depth
 	elseif token == q";"
 		node = token
 	elseif token == q"#"
-		(name, index) = _required(auto, index)
-		@assert name isa Label _error_message(auto, index, "expected a name, got: $name.")
+		(name, index) = _required(parser, index)
+		@assert name isa Label _error_message(parser, index, "expected a name, got: $name.")
 		node = (q"#", name)
 	else
-		(node, index) = _statement(auto, intro; depth)
+		(node, index) = _statement(parser, intro; depth)
 	end
 	indent = level
 	state = (index, depth, indent)
 	(nest => node, state)
 end
 
-@inline function _iterate(auto, state)
-	iter = iterate(auto.lexer, state[1])
+@inline function _iterate(parser, state)
+	iter = iterate(parser.lexer, state[1])
 	!isnothing(iter) || return nothing
 	((token, index), intro) = iter, state[1]
 	state = (index, state[2:end]...)
-	_scope(auto, token, state; intro)
+	_scope(parser, token, state; intro)
 end
 
 const Node = Pair{Int, Any}
 
-function _collect(auto, state)
+function _collect(parser, state)
 	defn = Node[]
 	depth = state[2]
-	while (iter = _iterate(auto, state); !isnothing(iter))
+	while (iter = _iterate(parser, state); !isnothing(iter))
 		(link, state) = iter
 		link == (depth => nothing) && break
 		!isnothing(link.second) && push!(defn, link)
@@ -329,15 +329,15 @@ function _collect(auto, state)
 end
 
 # state = (index, depth, indent)
-function Base.iterate(auto::Automata, state=(1, 0, 0))
-	while (iter = _iterate(auto, state); !isnothing(iter))
+function Base.iterate(parser::_Parser, state=(1, 0, 0))
+	while (iter = _iterate(parser, state); !isnothing(iter))
 		(arrow, state) = iter
 		isnothing(arrow.second) || return iter
 	end
 end
 
-Base.eltype(::Type{Automata}) = Node
-Base.IteratorSize(::Type{Automata}) = Base.SizeUnknown()
+Base.eltype(::Type{_Parser}) = Node
+Base.IteratorSize(::Type{_Parser}) = Base.SizeUnknown()
 
 """
 	ast(text; file)
@@ -359,6 +359,6 @@ julia> Caper.ast("return 1 + h'1f';")
 ```
 """
 function ast(text::AbstractString; file::String="_.ca")
-	return collect(Automata(Lookahead(text), file))
+	return collect(_Parser(_Lexer(text), file))
 end
 

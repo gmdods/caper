@@ -11,7 +11,7 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 	char * ptr = {malloc((4096 * sizeof(char)))};
-	if ((!p)) {
+	if ((!ptr)) {
 		{
 			fclose(f);
 		}
